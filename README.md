@@ -97,6 +97,18 @@ Configuration: environment variables `CRYPTO_*` (see [.env.example](.env.example
 Contracts (`contracts.py`, `schemas/`, `conf/symbols.yaml`, `cql/schema.cql`, `docs/contracts.md`) are owned by
 everyone: changes need approval from every affected owner. Ownership is enforced by [.github/CODEOWNERS](.github/CODEOWNERS).
 
+## After the first push (repo admin, once)
+
+```bash
+git remote add origin git@github.com:<org>/crypto-stream-lake.git && git push -u origin main
+gh auth login
+python scripts/create_issues.py --due <checkpoint-date YYYY-MM-DD>   # labels, milestone, one issue per task
+gh issue list --milestone "Checkpoint 1"
+```
+
+Then replace `@memberA`..`@memberE` in [.github/CODEOWNERS](.github/CODEOWNERS) with real handles and turn on
+branch protection for `main` (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+
 ## Docs
 
 * [docs/architecture.md](docs/architecture.md): Lambda diagram, data flow, deployment, components
