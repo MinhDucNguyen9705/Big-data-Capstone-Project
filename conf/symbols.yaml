@@ -1,0 +1,43 @@
+# Tracked symbols (CONTRACT: changes need a PR approved by every affected owner, see docs/contracts.md).
+# canonical = BASE-QUOTE, quote USDT. Coinbase quotes in USD; its trades map to the USDT canonical symbol
+# (documented approximation, the B2 spread analysis measures the difference). BNB is not listed on Coinbase.
+symbols:
+  - canonical: BTC-USDT
+    binance: BTCUSDT
+    coinbase: BTC-USD
+    coingecko: bitcoin
+  - canonical: ETH-USDT
+    binance: ETHUSDT
+    coinbase: ETH-USD
+    coingecko: ethereum
+  - canonical: BNB-USDT
+    binance: BNBUSDT
+    coingecko: binancecoin
+  - canonical: SOL-USDT
+    binance: SOLUSDT
+    coinbase: SOL-USD
+    coingecko: solana
+  - canonical: XRP-USDT
+    binance: XRPUSDT
+    coinbase: XRP-USD
+    coingecko: ripple
+  - canonical: ADA-USDT
+    binance: ADAUSDT
+    coinbase: ADA-USD
+    coingecko: cardano
+  - canonical: DOGE-USDT
+    binance: DOGEUSDT
+    coinbase: DOGE-USD
+    coingecko: dogecoin
+  - canonical: AVAX-USDT
+    binance: AVAXUSDT
+    coinbase: AVAX-USD
+    coingecko: avalanche-2
+  - canonical: LINK-USDT
+    binance: LINKUSDT
+    coinbase: LINK-USD
+    coingecko: chainlink
+  - canonical: LTC-USDT
+    binance: LTCUSDT
+    coinbase: LTC-USD
+    coingecko: litecoin
