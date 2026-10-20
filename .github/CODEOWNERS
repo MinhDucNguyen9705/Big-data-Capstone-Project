@@ -1,0 +1,56 @@
+# Replace @memberA..@memberE with the GitHub handles of the team. Later rules override earlier ones.
+# A Platform | B Ingestion | C Speed layer | D Batch and data | E Serving and docs
+
+*                                   @memberA
+
+# Platform (A)
+/deploy/                            @memberA
+/docker/                            @memberA
+/Makefile                           @memberA
+/.github/                           @memberA
+/conf/spark-defaults.conf           @memberA
+
+# Ingestion (B)
+/src/cryptopipe/ingest/             @memberB
+/tests/unit/ingest/                 @memberB
+
+# Speed layer (C)
+/src/cryptopipe/transforms/         @memberC
+/src/cryptopipe/jobs/stream_bronze.py   @memberC
+/src/cryptopipe/jobs/stream_ohlcv.py    @memberC
+/src/cryptopipe/demo/               @memberC
+/tests/unit/transforms/             @memberC
+
+# Batch and data (D)
+/src/cryptopipe/ingest/archive.py   @memberD
+/src/cryptopipe/ingest/replay.py    @memberD
+/src/cryptopipe/transforms/archive.py   @memberD
+/src/cryptopipe/jobs/batch_load_archive.py  @memberD
+/src/cryptopipe/jobs/batch_silver.py    @memberD
+/src/cryptopipe/jobs/profile.py     @memberD
+/tests/unit/ingest/test_archive_download.py     @memberD
+/tests/unit/transforms/test_archive_transform.py    @memberD
+
+# Serving and docs (E)
+/src/cryptopipe/serving/            @memberE
+/tests/unit/serving/                @memberE
+/deploy/cassandra/                  @memberE
+/deploy/monitoring/                 @memberE
+/docs/                              @memberE
+/README.md                          @memberE
+/docs/data.md                       @memberD
+
+# Shared test infrastructure (C and D use it most)
+/tests/conftest.py                  @memberC @memberD
+/tests/fixtures/                    @memberC @memberD @memberB
+/tests/unit/jobs/                   @memberC @memberD
+
+# Contracts: every layer must approve
+/src/cryptopipe/contracts.py        @memberA @memberB @memberC @memberD @memberE
+/src/cryptopipe/schemas/            @memberA @memberB @memberC @memberD @memberE
+/src/cryptopipe/symbols.py          @memberA @memberB @memberC @memberD @memberE
+/src/cryptopipe/config.py           @memberA @memberB @memberC @memberD @memberE
+/conf/symbols.yaml                  @memberA @memberB @memberC @memberD @memberE
+/cql/schema.cql                     @memberA @memberB @memberC @memberD @memberE
+/docs/contracts.md                  @memberA @memberB @memberC @memberD @memberE
+/.env.example                       @memberA @memberB @memberC @memberD @memberE
