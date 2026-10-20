@@ -31,6 +31,18 @@ def _ensure_hadoop_home() -> None:
         os.environ["PATH"] = str(candidate / "bin") + os.pathsep + os.environ.get("PATH", "")
 
 
+def to_spark_path(path: str | Path) -> str:
+    """Local path -> `file:` URI for Spark; URIs (`hdfs://`, `file:`) pass through unchanged.
+
+    Not `Path.as_uri()`: Hadoop does not decode `%20`, so spaces must stay literal (e.g. OneDrive folders).
+    """
+    text = str(path)
+    if "://" in text or text.startswith("file:"):
+        return text
+    posix = Path(text).resolve().as_posix()
+    return f"file://{posix}" if posix.startswith("/") else f"file:///{posix}"
+
+
 def get_spark(app_name: str, local: bool = False, conf: dict[str, str] | None = None) -> SparkSession:
     """Get or create the SparkSession. `conf` overrides (e.g. from tests) are applied last."""
     builder = SparkSession.builder.appName(app_name)
@@ -44,7 +56,7 @@ def get_spark(app_name: str, local: bool = False, conf: dict[str, str] | None = 
             .config("spark.sql.session.timeZone", "UTC")
             .config("spark.executor.extraJavaOptions", "-Duser.timezone=UTC")
             .config("spark.sql.shuffle.partitions", "4")
-            .config("spark.sql.warehouse.dir", Path(warehouse).as_uri())
+            .config("spark.sql.warehouse.dir", to_spark_path(warehouse))
             .config("spark.driver.extraJavaOptions", f"-Duser.timezone=UTC -Dderby.system.home={warehouse}")
             .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
             .config("spark.ui.enabled", "false")

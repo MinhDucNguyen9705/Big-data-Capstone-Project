@@ -124,7 +124,10 @@ Fields: `source`, `reason`, `raw` (original payload, unchanged), `ingest_ts` (ms
 ## 4. Lake layout
 
 Root: `CRYPTO_LAKE_ROOT` (local `file:///tmp/crypto-lake`, cluster `hdfs://hdfs-namenode.storage:8020/lake`).
-Partition columns: `date` (string `yyyy-MM-dd`, UTC from event time) and `hour` (int 0..23). Format: Parquet (zstd).
+Partition columns: `date` (string `yyyy-MM-dd`, UTC) and `hour` (int 0..23). Silver and gold take them from event
+time; bronze takes them from the Kafka record timestamp, because a raw record may not parse. Format: Parquet (zstd).
+Note: when reading a directory, Spark's partition discovery returns `date` as `DateType`; compare with
+`F.col("date") == "2025-10-09"` (implicit cast) or pass an explicit schema.
 
 | Constant | Path | Written by | Partitions | Content |
 |---|---|---|---|---|
