@@ -31,7 +31,8 @@ def _ensure_hadoop_home() -> None:
         os.environ["PATH"] = str(candidate / "bin") + os.pathsep + os.environ.get("PATH", "")
 
 
-def get_spark(app_name: str, local: bool = False) -> SparkSession:
+def get_spark(app_name: str, local: bool = False, conf: dict[str, str] | None = None) -> SparkSession:
+    """Get or create the SparkSession. `conf` overrides (e.g. from tests) are applied last."""
     builder = SparkSession.builder.appName(app_name)
     if local:
         _ensure_hadoop_home()
@@ -49,6 +50,8 @@ def get_spark(app_name: str, local: bool = False) -> SparkSession:
             .config("spark.ui.enabled", "false")
             .config("spark.ui.showConsoleProgress", "false")
         )
+    for key, value in (conf or {}).items():
+        builder = builder.config(key, value)
     spark = builder.getOrCreate()
     if local:
         spark.sparkContext.setLogLevel("WARN")

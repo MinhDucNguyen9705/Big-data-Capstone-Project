@@ -60,6 +60,10 @@ async def capture_ws() -> None:
     )
 
 
+def _write_json(path: Path, payload) -> None:
+    path.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8", newline="\n")
+
+
 def capture_rest() -> None:
     with httpx.Client(timeout=20) as client:
         r = client.get(
@@ -67,11 +71,11 @@ def capture_rest() -> None:
             params={"vs_currency": "usd", "ids": COINGECKO},
         )
         r.raise_for_status()
-        (HERE / "coingecko_markets.json").write_text(json.dumps(r.json(), indent=1) + "\n", encoding="utf-8")
+        _write_json(HERE / "coingecko_markets.json", r.json())
         print(f"coingecko_markets.json: {len(r.json())} assets")
         r = client.get("https://api.alternative.me/fng/", params={"limit": 30})
         r.raise_for_status()
-        (HERE / "fear_greed.json").write_text(json.dumps(r.json(), indent=1) + "\n", encoding="utf-8")
+        _write_json(HERE / "fear_greed.json", r.json())
         print(f"fear_greed.json: {len(r.json()['data'])} days")
 
 

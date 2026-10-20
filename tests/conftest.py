@@ -18,6 +18,8 @@ def fixtures_dir() -> Path:
 def spark():
     from cryptopipe.common.spark import get_spark
 
-    session = get_spark("cryptopipe-tests", local=True)
+    # One partition for DataFrames built from Python lists: on Windows every partition spawns a Python worker
+    # (~1 s each), which dominated test time. Shuffles keep the default 4 partitions.
+    session = get_spark("cryptopipe-tests", local=True, conf={"spark.default.parallelism": "1"})
     yield session
     session.stop()
