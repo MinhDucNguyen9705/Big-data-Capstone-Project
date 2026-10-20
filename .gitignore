@@ -1,0 +1,29 @@
+# secrets / local config
+.env
+
+# data and Spark local state
+data/
+*.parquet
+spark-warehouse/
+metastore_db/
+derby.log
+checkpoints/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# local tools (e.g. winutils for Spark on Windows)
+.tools/
+
+# editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
