@@ -49,7 +49,6 @@ def test_contracts_show():
             "task A4, owner D",
         ),
         (["replay", "--path", "x.csv", "--dry-run"], "task A4, owner D"),
-        (["job", "run", "stream_ohlcv", "--local", "--foo", "1"], "task A6, owner C"),
         (["job", "run", "profile"], "task A8, owner D"),
     ],
 )
@@ -62,3 +61,11 @@ def test_stub_commands_exit_2_with_owner(args, owner):
 def test_unknown_job_and_symbol_rejected():
     assert runner.invoke(app, ["job", "run", "nope"]).exit_code != 0
     assert runner.invoke(app, ["ingest", "binance", "--dry-run", "--symbols", "FOO-USDT"]).exit_code != 0
+
+
+@pytest.mark.parametrize("name", ["stream_bronze", "stream_ohlcv"])
+def test_streaming_invalid_options_fail_before_spark_start(name):
+    result = runner.invoke(app, ["job", "run", name, "--no-such-option"])
+    assert result.exit_code == 2
+    assert "unrecognized arguments" in result.output
+    assert "not implemented" not in result.output

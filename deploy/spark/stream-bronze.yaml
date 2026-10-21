@@ -1,0 +1,41 @@
+# Owner: C (A6 job), coordinated with A (A7 deployment).
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: stream-bronze
+  namespace: spark
+spec:
+  type: Python
+  pythonVersion: "3"
+  mode: cluster
+  image: cryptopipe-spark:dev
+  imagePullPolicy: IfNotPresent
+  mainApplicationFile: local:///opt/cryptopipe/run_job.py
+  sparkVersion: 3.5.9
+  arguments: [stream_bronze, --trigger, "1 minute", --starting-offsets, earliest, --max-offsets-per-trigger, "100000"]
+  restartPolicy:
+    type: Always
+    onFailureRetryInterval: 10
+    onSubmissionFailureRetryInterval: 20
+  sparkConf:
+    spark.sql.session.timeZone: UTC
+    spark.sql.shuffle.partitions: "4"
+    spark.sql.parquet.compression.codec: zstd
+    spark.eventLog.enabled: "true"
+    spark.eventLog.dir: hdfs://hdfs-namenode.storage:8020/spark-events
+    spark.ui.prometheus.enabled: "true"
+    spark.sql.streaming.metricsEnabled: "true"
+  driver:
+    cores: 1
+    memory: 1g
+    serviceAccount: cryptopipe-streaming
+    envFrom:
+      - configMapRef:
+          name: crypto-streaming-env
+  executor:
+    cores: 1
+    instances: 1
+    memory: 1500m
+    envFrom:
+      - configMapRef:
+          name: crypto-streaming-env

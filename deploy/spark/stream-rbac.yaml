@@ -1,0 +1,30 @@
+# Owner: C/A. Namespace and Spark Operator must already exist (platform task A7).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cryptopipe-streaming
+  namespace: spark
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cryptopipe-streaming
+  namespace: spark
+rules:
+  - apiGroups: [""]
+    resources: [pods, services, configmaps, persistentvolumeclaims]
+    verbs: [get, list, watch, create, delete, patch, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cryptopipe-streaming
+  namespace: spark
+subjects:
+  - kind: ServiceAccount
+    name: cryptopipe-streaming
+    namespace: spark
+roleRef:
+  kind: Role
+  name: cryptopipe-streaming
+  apiGroup: rbac.authorization.k8s.io

@@ -1,4 +1,4 @@
-# Owner: C (Speed layer) | Task: A5 | Status: minimal implementation from the bootstrap; C hardens it
+# Owner: C (Speed layer) | Task: A5
 """Data quality rules for trades. Rejected rows are never dropped silently: they carry a `reason`."""
 
 from __future__ import annotations
@@ -7,12 +7,14 @@ from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
 from cryptopipe.contracts import QUARANTINE_REASON
-from cryptopipe.schemas.common import EXCHANGES
+from cryptopipe.schemas import Trade
+from cryptopipe.schemas.common import EXCHANGES, SCHEMA_VERSION
 from cryptopipe.symbols import load_symbols
-from cryptopipe.transforms.normalize import RAW_COLUMN
+from cryptopipe.transforms.normalize import RAW_COLUMN, TRADE_COLUMNS
 
 MAX_FUTURE_MS = 5 * 60 * 1000
-REQUIRED = ["exchange", "symbol", "trade_id", "price", "qty", "side", "event_ts", "ingest_ts"]
+REQUIRED = TRADE_COLUMNS
+_EPOCH = Trade.model_json_schema()["properties"]["event_ts"]
 
 
 def trade_rules(symbols: list[str]) -> list[tuple[str, Column]]:
@@ -20,11 +22,26 @@ def trade_rules(symbols: list[str]) -> list[tuple[str, Column]]:
     now_ms = F.expr("unix_millis(current_timestamp())")
     return [
         ("malformed", F.greatest(*(F.col(c).isNull() for c in REQUIRED))),
+        (
+            "unknown_fields",
+            F.size(F.array_except(F.json_object_keys(RAW_COLUMN), F.array(*(F.lit(c) for c in TRADE_COLUMNS)))) > 0,
+        ),
+        ("unsupported_schema_version", F.col("schema_version") != SCHEMA_VERSION),
         ("unknown_exchange", ~F.col("exchange").isin(*EXCHANGES)),
         ("unknown_symbol", ~F.col("symbol").isin(*symbols)),
+        ("empty_trade_id", F.length(F.trim("trade_id")) == 0),
+        ("non_finite_price", F.isnan("price") | (F.abs("price") == float("inf"))),
+        ("non_finite_qty", F.isnan("qty") | (F.abs("qty") == float("inf"))),
         ("non_positive_price", F.col("price") <= 0),
         ("non_positive_qty", F.col("qty") <= 0),
         ("invalid_side", ~F.col("side").isin("buy", "sell")),
+        (
+            "invalid_timestamp",
+            (F.col("event_ts") < _EPOCH["minimum"])
+            | (F.col("event_ts") >= _EPOCH["exclusiveMaximum"])
+            | (F.col("ingest_ts") < _EPOCH["minimum"])
+            | (F.col("ingest_ts") >= _EPOCH["exclusiveMaximum"]),
+        ),
         (
             "future_timestamp",
             (F.col("event_ts") > F.col("ingest_ts") + MAX_FUTURE_MS) | (F.col("event_ts") > now_ms + MAX_FUTURE_MS),

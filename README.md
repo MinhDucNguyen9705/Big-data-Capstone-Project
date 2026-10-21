@@ -44,6 +44,8 @@ flowchart LR
 ```
 
 Full architecture: [docs/architecture.md](docs/architecture.md). Interfaces between layers: [docs/contracts.md](docs/contracts.md).
+Speed-layer jobs, local file-stream commands, checkpoint/recovery rules and cluster validation:
+[docs/speed-layer.md](docs/speed-layer.md).
 
 ## Quickstart (no cluster needed)
 
