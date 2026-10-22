@@ -1,0 +1,19 @@
+# PROFILE=cloud (stub, finished in Q2): 3 DataNodes, dfs.replication 3.
+# TODO(Q2): SSD storage class for the PVCs, bigger heaps, PodDisruptionBudgets, NameNode UI via Ingress not NodePort.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: hdfs-config
+    behavior: merge
+    files:
+      - hdfs-site.xml
+patches:
+  - target: { kind: StatefulSet, name: hdfs-datanode }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3

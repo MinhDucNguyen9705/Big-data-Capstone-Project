@@ -84,11 +84,32 @@ kind_load() {
   local img node
   for img in "$@"; do
     docker image inspect "$img" >/dev/null 2>&1 || docker pull -q "$img" >/dev/null
-    for node in $(kind get nodes --name "$CLUSTER_NAME"); do
-      docker save --platform linux/amd64 "$img"         | docker exec -i "$node" ctr --namespace=k8s.io images import --snapshotter=overlayfs - >/dev/null         || die "loading $img into $node failed"
-    done
-    ok "loaded $img into kind"
   done
+  # One stream per node with every image: tags of the same image share layers, so they are sent once.
+  for node in $(kind get nodes --name "$CLUSTER_NAME"); do
+    docker save --platform linux/amd64 "$@" \
+      | docker exec -i "$node" ctr --namespace=k8s.io images import --snapshotter=overlayfs - >/dev/null \
+      || die "loading $* into $node failed"
+    ok "loaded into $node: $*"
+  done
+}
+
+# native_path <path>: a path that native Windows tools (kubectl.exe, helm.exe) can open; unchanged elsewhere.
+native_path() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else echo "$1"; fi; }
+
+# sync_hadoop_conf: copy core-site.xml/hdfs-site.xml from ConfigMap hdfs-config (storage) to ConfigMap
+# hadoop-conf (spark), so Spark pods get the HDFS client config from the single source in deploy/hdfs.
+sync_hadoop_conf() {
+  local tmp f
+  tmp="$(native_path "$(mktemp -d)")"
+  for f in core-site.xml hdfs-site.xml; do
+    k -n storage get configmap hdfs-config -o go-template="{{index .data \"$f\"}}" >"$tmp/$f"
+  done
+  k -n spark create configmap hadoop-conf --from-file="$tmp/core-site.xml" --from-file="$tmp/hdfs-site.xml" \
+    --dry-run=client -o yaml | k -n spark label --local -f - app.kubernetes.io/part-of=crypto-pipeline -o yaml \
+    | k apply -f - >/dev/null
+  rm -rf "$tmp"
+  ok "ConfigMap hadoop-conf (spark) synced from hdfs-config (storage)"
 }
 
 # confirm "<question>": true when --yes was passed (ASSUME_YES=1) or the user types y.

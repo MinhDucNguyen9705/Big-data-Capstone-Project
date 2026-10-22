@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!-- HDFS config for PROFILE=local (dfs.replication 1). Owner: A (Platform).
+     overlays/cloud/hdfs-site.xml is a copy with dfs.replication 3; keep the two in sync.
+     DataNodes append dfs.datanode.hostname=<pod>.hdfs-datanode.storage.svc.cluster.local at startup. -->
+<configuration>
+  <property><name>dfs.replication</name><value>1</value></property>
+  <property><name>dfs.namenode.name.dir</name><value>/data/namenode</value></property>
+  <property><name>dfs.datanode.data.dir</name><value>/data/datanode</value></property>
+  <property><name>dfs.namenode.rpc-bind-host</name><value>0.0.0.0</value></property>
+  <property><name>dfs.namenode.servicerpc-bind-host</name><value>0.0.0.0</value></property>
+  <property><name>dfs.namenode.http-bind-host</name><value>0.0.0.0</value></property>
+  <!-- DataNodes register by DNS name, not pod IP (pod IPs change on every restart) -->
+  <property><name>dfs.namenode.datanode.registration.ip-hostname-check</name><value>false</value></property>
+  <property><name>dfs.client.use.datanode.hostname</name><value>true</value></property>
+  <property><name>dfs.datanode.use.datanode.hostname</name><value>true</value></property>
+  <property><name>dfs.permissions.enabled</name><value>true</value></property>
+  <property><name>dfs.webhdfs.enabled</name><value>true</value></property>
+  <!-- With 1-2 DataNodes, do not try to replace a failed DataNode in the write pipeline -->
+  <property><name>dfs.client.block.write.replace-datanode-on-failure.policy</name><value>NEVER</value></property>
+</configuration>

@@ -59,3 +59,24 @@ Scope: making the layers talk to each other on the cluster (DNS, jars, configs).
   `leaderElection.enable=false` and 1 Gi limit for the operator (`deploy/kafka/install-operator.sh`).
 * **Lesson:** on a laptop cluster, single-replica controllers should not depend on lease renewals, and every
   script that mixes POSIX shells with native tools needs one place that normalises paths.
+
+## 2026-10-22: kind control plane loses leader leases while images build and pull (8 GB Docker VM)
+
+* **Context / symptom:** during the first `kubectl apply -k deploy/hdfs/overlays/local` (3 nodes pulling the
+  944 MB `apache/hadoop:3.3.6` at ~0.6 MB/s each) while `docker build` of the Spark image ran, the `hdfs-init-lake`
+  pod showed `Completed` but its Job stayed `Running 0/1` for 25 min. `kube-controller-manager` was in
+  `CrashLoopBackOff` (17 restarts) and `kube-scheduler` had 16 restarts, both with `Failed to renew lease ...
+  context deadline exceeded` / `leaderelection lost`. Earlier the Strimzi operator had died the same way.
+* **What we tried:** etcd log: 50 of the last 200 lines were `apply request took too long` (~200 ms, expected
+  100 ms). `/proc/pressure/io` on the control-plane node: `some avg300=10.73 full avg300=5.03`. Memory was fine
+  (4.0 of 7.6 GiB used). After the build and pulls finished, IO pressure went to 0 and the controller manager
+  recovered by itself within 5 min; the Job turned Complete immediately.
+* **Numbers:** Spark image build 7.5 min + ingest 9.3 min (pip downloads; pyspark wheel 318 MB built from sdist);
+  Hadoop image pull ~20 min per node in parallel.
+* **Fix / decision:** the Strimzi operator runs without leader election (one replica). For the cluster itself:
+  do not build images while the cluster is starting, and pre-load large images once (`kind_load`) instead of
+  three parallel pulls. Follow-up (Q5): longer `leader-elect-lease-duration` for controller-manager and scheduler
+  in `deploy/kind/cluster.yaml` via kubeadm patches, after testing it on a fresh cluster.
+* **Lesson:** on a laptop cluster etcd shares one disk with image pulls and builds; when IO is saturated, every
+  component that depends on lease renewal fails at once, and the symptoms (stuck Jobs, restarting operators)
+  look unrelated. Check etcd latency and IO pressure before debugging the workload.
