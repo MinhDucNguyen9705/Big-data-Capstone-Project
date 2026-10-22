@@ -70,7 +70,10 @@ Desktop's IPv6 forwarding to kind hangs (librdkafka reports `Broker transport fa
 * **Lake folders** are generated from `contracts.LAKE_PATHS` by [hdfs/gen_lake_dirs.py](hdfs/gen_lake_dirs.py) and
   created by the `hdfs-init-lake` Job, owned by `spark`, mode 775.
 * **Spark jobs** run in namespace `spark` with ServiceAccount `spark` (created by the spark-operator chart). Copy
-  [spark/examples/hdfs-check.yaml](spark/examples/) to `deploy/spark/stream-*.yaml` (C) or `batch-*.yaml` (D).
+  [spark/examples/hdfs-check.yaml](spark/examples/) to `deploy/spark/stream-*.yaml` (C) or `batch-*.yaml` (D);
+  entrypoints are `local:///opt/cryptopipe/jobs/<name>.py` (one per `cryptopipe.jobs.JOBS` entry). Cluster defaults
+  from `conf/spark-defaults.conf` reach every job through the operator (ConfigMap `spark-defaults`); HDFS client
+  config through ConfigMap `hadoop-conf` (`spec.hadoopConfigMap`).
 * **Your own image:** `docker build ...` then `bash -c '. deploy/scripts/lib.sh; kind_load <image>'`
   (`kind load docker-image` fails on Docker Desktop's containerd image store, see Troubleshooting).
 * **Install scripts:** `deploy/cassandra/install.sh`, `deploy/monitoring/install.sh` and `deploy/ingest/install.sh`
@@ -95,3 +98,12 @@ Desktop's IPv6 forwarding to kind hangs (librdkafka reports `Broker transport fa
 | Laptop Kafka client: `Broker transport failure` / `Message timed out` | `localhost` → `::1` on Windows; IPv6 forwarding to kind hangs | use `127.0.0.1:9092`; the broker advertises `127.0.0.1:9093` |
 | Strimzi operator restarts, `Stopped being a leader => exiting`, Kafka CR never Ready | lease renewal too slow on a busy laptop | single replica with `leaderElection.enable=false` (`kafka/install-operator.sh`) |
 | `kubectl run ... timed out waiting for the condition` in check scripts | image pull / JVM start > 1 min on a busy node | `--pod-running-timeout=5m` in `kafka_cli` |
+| Job pod `Completed` but Job stays `Running`; `kube-controller-manager` / `kube-scheduler` in CrashLoopBackOff (`leaderelection lost`) | etcd too slow while images build or pull (disk IO saturated) | new clusters run them with `leader-elect=false` (`kind/cluster*.yaml`); on an older cluster wait for IO to calm down (it recovers by itself) or recreate it |
+| SparkApplication works but no event log / History Server empty / not UTC | in cluster mode the driver ignores the image's `spark-defaults.conf` | defaults are mounted into the operator controller (ConfigMap `spark-defaults`); rerun `bash deploy/spark/install-operator.sh` after editing `conf/spark-defaults.conf` |
+| spark-operator: `mkdir /tmp/spark: read-only file system` | Helm `controller.volumes` replaces the chart's default `/tmp` volume | keep the `tmp` emptyDir in `spark/operator-values.yaml` |
+| Hadoop client in a pod: `Wrong FS: hdfs://hdfs-namenode.storage.svc:8020/...` | mixed authorities | use exactly `hdfs://hdfs-namenode.storage:8020` |
+| First `make deploy` takes 20+ min | images pulled by every node (`apache/hadoop` ~1 GB) | normal on slow networks; later runs ~6 min |
+
+Sizing for the local profile (requests ~1.3 CPU, ~4 GiB; per-workload table): see
+[docs/sections/deployment.md](../docs/sections/deployment.md). Measured on an 8 GB / 12 CPU Docker Desktop VM:
+first `cluster-up` 15 min, rerun 2 min; `make deploy` 6 min on a warm cluster; `make smoke` 1.5 min.
