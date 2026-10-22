@@ -1,0 +1,34 @@
+# Helm values for the kubeflow spark-operator chart (pinned in deploy/scripts/lib.sh). Owner: A (Platform).
+# The chart also creates the ServiceAccount `spark` (+ Role/RoleBinding for pods, services, configmaps, PVCs)
+# in every job namespace; SparkApplications use `driver.serviceAccount: spark`.
+spark:
+  jobNamespaces:
+    - spark
+  serviceAccount:
+    create: true
+    name: spark
+  rbac:
+    create: true
+
+controller:
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { memory: 384Mi }
+
+# The webhook mutates driver/executor pods (volumes, ConfigMaps, envFrom, tolerations). Without it those fields
+# are silently ignored, so it stays on and the install waits for it.
+webhook:
+  enable: true
+  failurePolicy: Fail
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+
+prometheus:
+  metrics:
+    enable: true
+    port: 8080
+    endpoint: /metrics
+  podMonitor:
+    create: false   # E creates PodMonitors in deploy/monitoring once the Prometheus CRDs exist

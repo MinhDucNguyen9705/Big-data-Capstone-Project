@@ -1,0 +1,5 @@
+# PROFILE=lite: same as local for now (1 node already). TODO(Q2): smaller heap (256m-512m) for 8 GB laptops.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base

@@ -1,0 +1,56 @@
+# Kafka cluster `crypto` (bootstrap Service crypto-kafka-bootstrap.kafka:9092), KRaft, Strimzi v1 API.
+# Owner: A (Platform). Base = local profile values; overlays patch replicas and replication for lite/cloud.
+apiVersion: kafka.strimzi.io/v1
+kind: Kafka
+metadata:
+  name: crypto
+  namespace: kafka
+  labels: { app.kubernetes.io/part-of: crypto-pipeline }
+spec:
+  kafka:
+    version: 4.3.1
+    listeners:
+      # In-cluster clients (B's producers, C's and D's Spark jobs): crypto-kafka-bootstrap.kafka:9092
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+      # Laptop clients: kind maps NodePort 30092 -> 127.0.0.1:9092 and 30093 -> 127.0.0.1:9093.
+      # The broker must advertise a laptop address, otherwise the client gets the pod DNS name back from the
+      # metadata request and cannot connect. 127.0.0.1, not `localhost`: on Windows `localhost` resolves to ::1
+      # first and Docker Desktop's IPv6 forwarding hangs (see docs/journal/integration.md).
+      - name: external
+        port: 9094
+        type: nodeport
+        tls: false
+        configuration:
+          bootstrap:
+            nodePort: 30092
+          brokers:
+            - broker: 0
+              nodePort: 30093
+              advertisedHost: 127.0.0.1
+              advertisedPort: 9093
+    config:
+      default.replication.factor: 1
+      min.insync.replicas: 1
+      offsets.topic.replication.factor: 1
+      transaction.state.log.replication.factor: 1
+      transaction.state.log.min.isr: 1
+      auto.create.topics.enable: false
+  entityOperator:
+    topicOperator:
+      resources:
+        requests: { cpu: 50m, memory: 192Mi }
+        limits: { memory: 384Mi }
+    userOperator:
+      resources:
+        requests: { cpu: 50m, memory: 192Mi }
+        limits: { memory: 384Mi }
+  # Lag and offset metrics for E's dashboards
+  kafkaExporter:
+    topicRegex: ".*"
+    groupRegex: ".*"
+    resources:
+      requests: { cpu: 20m, memory: 64Mi }
+      limits: { memory: 128Mi }

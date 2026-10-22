@@ -1,0 +1,21 @@
+# kind cluster for PROFILE=local: 1 control plane + 2 workers. Owner: A (Platform).
+# NodePorts are published on the control-plane node and mapped to the laptop (hostPort).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: crypto
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - { containerPort: 30092, hostPort: 9092, protocol: TCP }   # Kafka external bootstrap
+      - { containerPort: 30093, hostPort: 9093, protocol: TCP }   # Kafka broker 0
+      - { containerPort: 30094, hostPort: 9094, protocol: TCP }   # Kafka broker 1 (spare, cloud-like 3 brokers)
+      - { containerPort: 30095, hostPort: 9095, protocol: TCP }   # Kafka broker 2 (spare)
+      - { containerPort: 30300, hostPort: 3000, protocol: TCP }   # Grafana (E)
+      - { containerPort: 30870, hostPort: 9870, protocol: TCP }   # HDFS NameNode UI
+      - { containerPort: 31808, hostPort: 18080, protocol: TCP }  # Spark History Server
+  - role: worker
+    labels:
+      crypto/role: worker
+  - role: worker
+    labels:
+      crypto/role: worker
