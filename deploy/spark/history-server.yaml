@@ -1,0 +1,63 @@
+# Spark History Server: reads event logs from hdfs://hdfs-namenode.storage:8020/spark-events
+# (spark.history.fs.logDirectory in conf/spark-defaults.conf). Owner: A (Platform).
+# Laptop: http://localhost:18080 (kind maps NodePort 31808 -> 18080).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-history-server
+  namespace: spark
+  labels:
+    app.kubernetes.io/name: spark-history-server
+    app.kubernetes.io/part-of: crypto-pipeline
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: spark-history-server }
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: spark-history-server
+        app.kubernetes.io/part-of: crypto-pipeline
+    spec:
+      containers:
+        - name: history-server
+          image: cryptopipe-spark:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.history.HistoryServer"]
+          env:
+            - { name: SPARK_DAEMON_MEMORY, value: 512m }
+            - { name: HADOOP_CONF_DIR, value: /opt/hadoop-conf }
+            - name: SPARK_HISTORY_OPTS
+              value: "-Dspark.history.fs.update.interval=10s -Dspark.history.fs.cleaner.enabled=true -Dspark.history.fs.cleaner.maxAge=7d"
+          ports:
+            - { name: http, containerPort: 18080 }
+          readinessProbe:
+            httpGet: { path: /, port: 18080 }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: 18080 }
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            requests: { cpu: 100m, memory: 512Mi }
+            limits: { memory: 1Gi }
+          volumeMounts:
+            - { name: hadoop-conf, mountPath: /opt/hadoop-conf }
+      volumes:
+        - name: hadoop-conf
+          configMap: { name: hadoop-conf }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-history-server
+  namespace: spark
+  labels:
+    app.kubernetes.io/name: spark-history-server
+    app.kubernetes.io/part-of: crypto-pipeline
+spec:
+  type: NodePort
+  selector: { app.kubernetes.io/name: spark-history-server }
+  ports:
+    - { name: http, port: 18080, targetPort: 18080, nodePort: 31808 }
