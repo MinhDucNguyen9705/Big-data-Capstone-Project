@@ -11,19 +11,18 @@ def test_registry_modules_import():
         assert callable(importlib.import_module(module).main)
 
 
-@pytest.mark.skip(reason="TODO A6 – owner D")
-def test_batch_silver_local(fixtures_dir):
+def test_batch_silver_local(fixtures_dir, tmp_path):
     from cryptopipe.jobs import batch_silver
 
-    assert batch_silver.main(["--local", "--input", str(fixtures_dir / "trades_normalized.jsonl")]) == 0
+    args = ["--local", "--input", str(fixtures_dir / "trades_normalized.jsonl"), "--lake-root", str(tmp_path)]
+    assert batch_silver.main(args) == 0
 
 
-@pytest.mark.skip(reason="TODO A6 – owner D")
-def test_batch_load_archive_local(fixtures_dir):
+def test_batch_load_archive_local(fixtures_dir, tmp_path):
     from cryptopipe.jobs import batch_load_archive
 
     args = ["--local", "--input", str(fixtures_dir / "archive_trades_sample.csv"), "--symbol", "BTC-USDT"]
-    assert batch_load_archive.main(args) == 0
+    assert batch_load_archive.main([*args, "--lake-root", str(tmp_path)]) == 0
 
 
 @pytest.mark.skip(reason="TODO A6 – owner C")

@@ -70,8 +70,18 @@ port-forward:  ## [owner A] Port-forward NameNode UI, Spark UI, History Server, 
 	bash deploy/scripts/port-forward.sh
 
 # ---- owner D (Batch and data), task A8 -----------------------------------------------------------------------
+# Checkpoint dataset: 30 days of trades and 2 years of 1m klines for the tracked symbols (override on the command
+# line, e.g. `make data-download TRADES_START=2025-09-01 TRADES_END=2025-09-02 SYMBOLS=BTCUSDT`).
+DATA_DEST    ?= ./data/archive
+SYMBOLS      ?= $(shell $(PY) -c "from cryptopipe.symbols import load_symbols; print(','.join(load_symbols().for_exchange('binance')))")
+TRADES_START ?= 2025-09-01
+TRADES_END   ?= 2025-09-30
+KLINES_START ?= 2023-10-01
+KLINES_END   ?= 2025-09-30
+
 data-download:  ## [owner D] Download the checkpoint dataset from data.binance.vision
-	@echo "data-download: owner D (task A8), not implemented yet"; exit 2
+	$(BIN)/crypto backfill download --symbols $(SYMBOLS) --kind trades --start $(TRADES_START) --end $(TRADES_END) --dest $(DATA_DEST)
+	$(BIN)/crypto backfill download --symbols $(SYMBOLS) --kind klines --start $(KLINES_START) --end $(KLINES_END) --dest $(DATA_DEST)
 
 clean:  ## Remove caches and local Spark state
 	rm -rf .pytest_cache .ruff_cache spark-warehouse metastore_db derby.log build dist src/*.egg-info
