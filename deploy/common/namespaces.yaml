@@ -1,0 +1,36 @@
+# Shared namespaces. Owner: A (Platform). Other members create resources inside them, never the namespaces.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kafka
+  labels: { app.kubernetes.io/part-of: crypto-pipeline }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: storage
+  labels: { app.kubernetes.io/part-of: crypto-pipeline }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spark
+  labels: { app.kubernetes.io/part-of: crypto-pipeline }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingest
+  labels: { app.kubernetes.io/part-of: crypto-pipeline }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: serving
+  labels: { app.kubernetes.io/part-of: crypto-pipeline }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels: { app.kubernetes.io/part-of: crypto-pipeline }

@@ -1,0 +1,49 @@
+# Helm values for the kubeflow spark-operator chart (pinned in deploy/scripts/lib.sh). Owner: A (Platform).
+# The chart also creates the ServiceAccount `spark` (+ Role/RoleBinding for pods, services, configmaps, PVCs)
+# in every job namespace; SparkApplications use `driver.serviceAccount: spark`.
+spark:
+  jobNamespaces:
+    - spark
+  serviceAccount:
+    create: true
+    name: spark
+  rbac:
+    create: true
+
+controller:
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { memory: 512Mi }   # every submission starts a spark-submit JVM inside the controller
+  # The controller runs spark-submit for every SparkApplication. In cluster mode the driver only sees the
+  # properties spark-submit sends (its /opt/spark/conf is replaced by a generated ConfigMap), so the image's
+  # spark-defaults.conf is ignored. Giving the controller conf/spark-defaults.conf (ConfigMap spark-defaults,
+  # created by install-operator.sh) makes every job inherit the cluster defaults: event log, UTC, Prometheus, ...
+  env:
+    - { name: SPARK_CONF_DIR, value: /etc/cryptopipe/spark-conf }
+  # Setting volumes replaces the chart's list, so its writable /tmp (read-only root file system) is repeated here.
+  volumes:
+    - name: tmp
+      emptyDir: { sizeLimit: 1Gi }
+    - name: spark-defaults
+      configMap: { name: spark-defaults }
+  volumeMounts:
+    - { name: tmp, mountPath: /tmp }
+    - { name: spark-defaults, mountPath: /etc/cryptopipe/spark-conf, readOnly: true }
+
+# The webhook mutates driver/executor pods (volumes, ConfigMaps, envFrom, tolerations). Without it those fields
+# are silently ignored, so it stays on and the install waits for it.
+webhook:
+  enable: true
+  failurePolicy: Fail
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+
+prometheus:
+  metrics:
+    enable: true
+    port: 8080
+    endpoint: /metrics
+  podMonitor:
+    create: false   # E creates PodMonitors in deploy/monitoring once the Prometheus CRDs exist

@@ -13,7 +13,7 @@ PY := $(BIN)/python
 
 .DEFAULT_GOAL := help
 .PHONY: help install lint fmt test test-integration demo fixtures fixtures-check \
-        build-images cluster-up cluster-down deploy smoke data-download clean
+        build-images cluster-up cluster-down deploy smoke port-forward data-download clean
 
 help:  ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-18s %s\n", $$1, $$2}'
@@ -48,21 +48,26 @@ fixtures:  ## Regenerate the seeded fixtures (tests/fixtures/make_fixtures.py)
 fixtures-check:  ## Verify committed fixtures match the seed
 	$(PY) tests/fixtures/make_fixtures.py --check
 
-# ---- owner A (Platform), task A7: placeholders until deploy/ is implemented -------------------------------
+# ---- owner A (Platform): scripts in deploy/scripts, see deploy/README.md --------------------------------------
+PROFILE ?= local
+
 build-images:  ## [owner A] Build cryptopipe-spark and cryptopipe-ingest images, load into kind
-	@echo "build-images: owner A (task A7), not implemented yet"; exit 2
+	bash deploy/scripts/build-images.sh
 
-cluster-up:  ## [owner A] Create the kind cluster and install operators
-	@echo "cluster-up: owner A (task A7), not implemented yet"; exit 2
+cluster-up:  ## [owner A] Create the kind cluster, namespaces, shared ConfigMap, operators (PROFILE=local|lite)
+	PROFILE=$(PROFILE) bash deploy/scripts/cluster-up.sh
 
-cluster-down:  ## [owner A] Delete the kind cluster
-	@echo "cluster-down: owner A (task A7), not implemented yet"; exit 2
+cluster-down:  ## [owner A] Delete the local kind cluster (asks first; YES=1 to skip)
+	bash deploy/scripts/cluster-down.sh $(if $(YES),--yes)
 
-deploy:  ## [owner A] Apply all manifests in deploy/
-	@echo "deploy: owner A (task A7), not implemented yet"; exit 2
+deploy:  ## [owner A] Kafka, HDFS, Spark, History Server + others' install scripts if present (WITH_JOBS=1)
+	PROFILE=$(PROFILE) WITH_JOBS=$(WITH_JOBS) bash deploy/scripts/deploy-all.sh
 
-smoke:  ## [owner A] Smoke test: pods ready, topic counts, HDFS usage, Cassandra rows
-	@echo "smoke: owner A (task A7), not implemented yet"; exit 2
+smoke:  ## [owner A] Smoke test: pods ready, topic counts, HDFS usage, Spark job, Cassandra rows
+	PROFILE=$(PROFILE) bash deploy/scripts/smoke-test.sh
+
+port-forward:  ## [owner A] Port-forward NameNode UI, Spark UI, History Server, Grafana
+	bash deploy/scripts/port-forward.sh
 
 # ---- owner D (Batch and data), task A8 -----------------------------------------------------------------------
 data-download:  ## [owner D] Download the checkpoint dataset from data.binance.vision
