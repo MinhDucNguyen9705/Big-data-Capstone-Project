@@ -1,11 +1,9 @@
-# Owner: B | Task: A3. Remove the skip marker when implementing cryptopipe.ingest.binance_ws.
+# Owner: B | Task: A3. Tests for cryptopipe.ingest.binance_ws.
 import json
 
 import pytest
 
 from cryptopipe.ingest import binance_ws
-
-pytestmark = pytest.mark.skip(reason="TODO A3 – owner B")
 
 
 def _messages(fixtures_dir, name):
@@ -30,3 +28,9 @@ def test_parse_kline_fixture(fixtures_dir):
         assert k.interval == "1m"
         assert k.open_ts == msg["data"]["k"]["t"]
         assert k.is_closed == msg["data"]["k"]["x"]
+
+
+def test_parse_trade_unknown_symbol_goes_to_dlq_path():
+    msg = {"data": {"s": "FOOUSDT", "t": 1, "p": "1", "q": "1", "T": 1_760_000_000_000, "m": False}}
+    with pytest.raises(ValueError, match="unknown symbol"):
+        binance_ws.parse_trade(msg)
