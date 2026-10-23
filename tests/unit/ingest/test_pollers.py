@@ -1,11 +1,7 @@
-# Owner: B | Task: A3. Remove the skip marker when implementing the CoinGecko and Fear & Greed pollers.
+# Owner: B | Task: A3. Tests for the CoinGecko and Fear & Greed pollers.
 import json
 
-import pytest
-
 from cryptopipe.ingest import coingecko, fear_greed
-
-pytestmark = pytest.mark.skip(reason="TODO A3 – owner B")
 
 
 def test_parse_coingecko_markets(fixtures_dir):

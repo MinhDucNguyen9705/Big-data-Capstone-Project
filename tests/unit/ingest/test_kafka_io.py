@@ -1,13 +1,9 @@
-# Owner: B | Task: A3. Remove the skip marker when implementing cryptopipe.ingest.kafka_io.
+# Owner: B | Task: A3. Tests for cryptopipe.ingest.kafka_io.
 import json
-
-import pytest
 
 from cryptopipe import contracts
 from cryptopipe.ingest import kafka_io
 from cryptopipe.schemas import Trade
-
-pytestmark = pytest.mark.skip(reason="TODO A3 – owner B")
 
 
 class FakeProducer:
