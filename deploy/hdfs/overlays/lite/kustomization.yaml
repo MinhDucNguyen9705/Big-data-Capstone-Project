@@ -1,0 +1,12 @@
+# PROFILE=lite: 1 DataNode. dfs.replication stays 1: with a single DataNode a higher factor would leave every
+# block under-replicated forever.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  - target: { kind: StatefulSet, name: hdfs-datanode }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1

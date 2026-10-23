@@ -1,0 +1,21 @@
+# HDFS for PROFILE=local. Owner: A (Platform). Apply with: kubectl apply -k deploy/hdfs/overlays/<profile>
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: storage
+labels:
+  - pairs: { app.kubernetes.io/part-of: crypto-pipeline }
+resources:
+  - services.yaml
+  - namenode.yaml
+  - datanode.yaml
+  - init-lake-job.yaml
+generatorOptions:
+  disableNameSuffixHash: true   # fixed names: deploy-all.sh copies hdfs-config to `spark` as hadoop-conf
+configMapGenerator:
+  - name: hdfs-config
+    files:
+      - core-site.xml
+      - hdfs-site.xml
+  - name: hdfs-lake-dirs
+    files:
+      - lake-dirs.txt=lake-dirs.generated.txt

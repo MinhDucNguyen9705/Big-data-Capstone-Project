@@ -1,0 +1,5 @@
+# PROFILE=local: 1 NameNode, 2 DataNodes, dfs.replication 1 (base values).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base

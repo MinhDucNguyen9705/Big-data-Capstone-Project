@@ -1,0 +1,29 @@
+# Node pool `dual`: every node is KRaft controller + broker. Owner: A (Platform).
+# Local: 1 node. Cloud overlay: 3 nodes.
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaNodePool
+metadata:
+  name: dual
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: crypto
+    app.kubernetes.io/part-of: crypto-pipeline
+spec:
+  replicas: 1
+  roles:
+    - controller
+    - broker
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: persistent-claim
+        size: 10Gi
+        deleteClaim: false
+        kraftMetadata: shared
+  jvmOptions:
+    -Xms: 512m
+    -Xmx: 1g
+  resources:
+    requests: { cpu: 250m, memory: 1Gi }
+    limits: { memory: 1536Mi }

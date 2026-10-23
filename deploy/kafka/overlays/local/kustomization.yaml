@@ -1,0 +1,5 @@
+# PROFILE=local: 1 dual-role node, RF 1, NodePort listener advertised as localhost (base values).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base

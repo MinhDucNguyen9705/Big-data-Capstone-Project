@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- HDFS client + server config, shipped as ConfigMap hdfs-config (storage) and hadoop-conf (spark). Owner: A.
+     The authority matches CRYPTO_LAKE_ROOT (docs/contracts.md): Hadoop treats hdfs://a and hdfs://a.svc as
+     different file systems ("Wrong FS"), so every component uses exactly hdfs-namenode.storage:8020. -->
+<configuration>
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://hdfs-namenode.storage:8020</value>
+  </property>
+</configuration>

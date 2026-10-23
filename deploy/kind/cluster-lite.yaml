@@ -1,0 +1,30 @@
+# kind cluster for PROFILE=lite (weak laptops): 1 control plane + 1 worker. Owner: A (Platform).
+# Same port mappings as cluster.yaml.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: crypto
+# Single control plane: kube-controller-manager and kube-scheduler need no leader election. With it on, a slow
+# etcd (image pulls and builds saturating the laptop disk) made both miss lease renewals and crash-loop
+# ("leaderelection lost"), which stalled Jobs and scheduling (docs/journal/integration.md).
+kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    controllerManager:
+      extraArgs:
+        - name: leader-elect
+          value: "false"
+    scheduler:
+      extraArgs:
+        - name: leader-elect
+          value: "false"
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - { containerPort: 30092, hostPort: 9092, protocol: TCP }   # Kafka external bootstrap
+      - { containerPort: 30093, hostPort: 9093, protocol: TCP }   # Kafka broker 0
+      - { containerPort: 30300, hostPort: 3000, protocol: TCP }   # Grafana (E)
+      - { containerPort: 30870, hostPort: 9870, protocol: TCP }   # HDFS NameNode UI
+      - { containerPort: 31808, hostPort: 18080, protocol: TCP }  # Spark History Server
+  - role: worker
+    labels:
+      crypto/role: worker
