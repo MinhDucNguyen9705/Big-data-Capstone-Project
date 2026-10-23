@@ -50,12 +50,28 @@ def test_contracts_show():
         ),
         (["replay", "--path", "x.csv", "--dry-run"], "task A4, owner D"),
         (["job", "run", "profile"], "task A8, owner D"),
+        (["job", "run", "stream_ohlcv", "--local", "--foo", "1"], "task A6, owner C"),
     ],
 )
 def test_stub_commands_exit_2_with_owner(args, owner):
     result = runner.invoke(app, args)
     assert result.exit_code == NOT_IMPLEMENTED_EXIT
     assert f"not implemented yet ({owner})" in result.output
+
+
+def test_replay_dry_run_from_cli(fixtures_dir):
+    result = runner.invoke(
+        app, ["replay", "--path", str(fixtures_dir / "archive_trades_sample.csv"), "--rate", "1e9", "--dry-run"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "replayed 1000 trades" in result.output
+
+
+def test_batch_job_from_cli(tmp_path):
+    result = runner.invoke(
+        app, ["job", "run", "profile", "--local", "--lake-root", str(tmp_path), "--raw", str(tmp_path)]
+    )
+    assert result.exit_code == 0, result.output
 
 
 def test_unknown_job_and_symbol_rejected():

@@ -1,0 +1,61 @@
+# Sample SparkApplication (owner A). C and D copy this file to deploy/spark/stream-*.yaml / batch-*.yaml;
+# see README.md next to it for the fields to change. Submitted by deploy/spark/check.sh.
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: platform-hdfs-check            # CHANGE: one name per job
+  namespace: spark
+  labels:
+    app.kubernetes.io/part-of: crypto-pipeline
+    app.kubernetes.io/component: platform-check
+spec:
+  type: Python
+  pythonVersion: "3"
+  mode: cluster
+  sparkVersion: 3.5.9
+  image: cryptopipe-spark:latest
+  imagePullPolicy: IfNotPresent
+  # CHANGE: your job, e.g. local:///opt/cryptopipe/jobs/stream_bronze.py (one file per cryptopipe.jobs.JOBS entry)
+  mainApplicationFile: local:///opt/platform-check/hdfs-check.py
+  arguments: []                        # CHANGE: job arguments (passed to main(argv))
+  # core-site.xml / hdfs-site.xml, copied from deploy/hdfs by deploy-all.sh; mounted as HADOOP_CONF_DIR
+  hadoopConfigMap: hadoop-conf
+  sparkConf:
+    spark.kubernetes.driver.service.deleteOnTermination: "true"
+  restartPolicy:
+    type: Never                        # CHANGE: streaming jobs use Always (or OnFailure with retries)
+  timeToLiveSeconds: 3600              # finished application objects are cleaned up after 1 h
+  volumes:
+    # Only for this sample: its script lives in deploy/, not in the image. Your jobs are in the image already.
+    - name: platform-check
+      configMap: { name: platform-hdfs-check }
+  driver:
+    cores: 1                           # CHANGE: resources
+    coreLimit: "1"
+    memory: 1g
+    memoryOverhead: 384m
+    serviceAccount: spark
+    envFrom:
+      - configMapRef: { name: cryptopipe-env }
+    volumeMounts:
+      - { name: platform-check, mountPath: /opt/platform-check }
+    labels:
+      app.kubernetes.io/part-of: crypto-pipeline
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "4040"
+      prometheus.io/path: /metrics/prometheus/
+  executor:
+    instances: 1                       # CHANGE: resources
+    cores: 1
+    coreLimit: "1"
+    memory: 1g
+    memoryOverhead: 384m
+    envFrom:
+      - configMapRef: { name: cryptopipe-env }
+    labels:
+      app.kubernetes.io/part-of: crypto-pipeline
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "4040"
+      prometheus.io/path: /metrics/executors/prometheus/

@@ -1,0 +1,19 @@
+# Connector jars baked into /opt/spark/jars of cryptopipe-spark. Owner: A (Platform).
+# groupId:artifactId:version, downloaded from Maven Central and checked against the published .sha1
+# (docker/spark/fetch_jars.py). Everything is Scala 2.12 and matches Spark 3.5.9; transitive runtime
+# dependencies that Spark does not already ship are listed explicitly (versions from Spark's own pom).
+
+# Kafka source/sink (Structured Streaming + batch)
+org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.9
+org.apache.spark:spark-token-provider-kafka-0-10_2.12:3.5.9
+org.apache.kafka:kafka-clients:3.4.1
+org.apache.commons:commons-pool2:2.11.1
+
+# Cassandra (assembly jar: shaded driver included)
+com.datastax.spark:spark-cassandra-connector-assembly_2.12:3.5.1
+
+# GraphFrames (Maven Central under io.graphframes since 0.9) and its runtime dependencies
+io.graphframes:graphframes-spark3_2.12:0.12.3
+io.graphframes:graphframes-graphx-spark3_2.12:0.12.3
+org.apache.datasketches:datasketches-java:6.2.0
+org.apache.datasketches:datasketches-memory:3.0.2

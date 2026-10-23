@@ -24,3 +24,60 @@ Scope: making the layers talk to each other on the cluster (DNS, jars, configs).
 * **Fix / decision:** `common.spark.to_spark_path()` builds `file:///D:/One Drive/...` with literal spaces; URIs
   (`hdfs://`) pass through unchanged. Use it for every local path given to Spark.
 * **Lesson:** Hadoop paths are not standard URIs; never percent-encode them.
+
+## 2026-10-22: Kafka on kind is reachable from pods but not from a Windows laptop (advertised listener)
+
+* **Context / symptom:** Strimzi `Kafka` CR `crypto` with an `external` NodePort listener (bootstrap 30092 → host
+  9092, broker 0 30093 → host 9093, `advertisedHost: localhost`). In-cluster clients worked. From the Windows
+  laptop, `confluent_kafka` failed with `Failed to get metadata: Local: Broker transport failure` and produces
+  timed out (`_MSG_TIMED_OUT`).
+* **What we tried:** (1) `kafka-broker-api-versions.sh` from a pod against the external bootstrap Service and
+  against `<node IP>:30092`: both returned metadata advertising `localhost:9093`, so the listener and NodePort
+  were right. (2) The same from a container on the `kind` Docker network: OK. (3) Python socket test from Windows:
+  `127.0.0.1:9092` open, `::1:9092` timed out. (4) librdkafka with `broker.address.family=v4`: metadata in 1 ms.
+* **Numbers:** `localhost` bootstrap: no metadata after 15 s; `127.0.0.1` bootstrap: ApiVersion rtt 2.2 ms,
+  Metadata rtt 0.9 ms. `deploy/kafka/check.sh` (6 topics + round trip) runs in ~4 min, mostly throwaway-pod start.
+* **Fix / decision:** advertise `127.0.0.1:9093` instead of `localhost` (`deploy/kafka/base/kafka.yaml`), and use
+  `CRYPTO_KAFKA_BOOTSTRAP=127.0.0.1:9092` in laptop `.env` files (`deploy/README.md`).
+* **Lesson:** a Kafka client only uses the bootstrap address for the first metadata call; every later request
+  goes to the advertised broker address, so that address must be reachable *from the client's network*. Test
+  each hop separately (pod, Docker network, host) and prefer literal IPv4 over `localhost` on Windows.
+
+## 2026-10-22: Windows tooling traps when scripting kind (paths, image loading, operator leases)
+
+* **Context / symptom:** `make cluster-up` from Git Bash: (1) `helm` failed with `open /d/OneDrive - .../operator-values.yaml:
+  The system cannot find the path specified`; (2) `kind load docker-image` failed with `ctr: content digest
+  sha256:f0a2...: not found`; (3) the Strimzi operator restarted 6 times in 34 min (`Stopped being a leader =>
+  exiting`) and `kubectl wait kafka/crypto --for=condition=Ready` timed out after 600 s, while Kafka itself ran.
+* **What we tried:** (1) native Windows binaries do not understand MSYS paths; `pwd -W` gives `D:/...`, which both
+  work with. (2) `docker save` to a temp file + `kind load image-archive` worked but filled the 0.4 GB left on C:;
+  streaming `docker save --platform linux/amd64 | docker exec -i <node> ctr images import -` needs no disk.
+  (3) the operator log showed a 409 on the lease PATCH, then exit; one replica needs no leader election.
+* **Numbers:** first `cluster-up` 15 min (kind node image + operator image pulled inside kind); rerun 1m45s;
+  streaming an 800 MB image into 3 nodes ~7 min. After disabling leader election: Kafka CR Ready in ~2 min, 0 restarts.
+* **Fix / decision:** `REPO_ROOT` via `pwd -W`, `MSYS_NO_PATHCONV=1`, `kind_load` helper (`deploy/scripts/lib.sh`);
+  `leaderElection.enable=false` and 1 Gi limit for the operator (`deploy/kafka/install-operator.sh`).
+* **Lesson:** on a laptop cluster, single-replica controllers should not depend on lease renewals, and every
+  script that mixes POSIX shells with native tools needs one place that normalises paths.
+
+## 2026-10-22: kind control plane loses leader leases while images build and pull (8 GB Docker VM)
+
+* **Context / symptom:** during the first `kubectl apply -k deploy/hdfs/overlays/local` (3 nodes pulling the
+  944 MB `apache/hadoop:3.3.6` at ~0.6 MB/s each) while `docker build` of the Spark image ran, the `hdfs-init-lake`
+  pod showed `Completed` but its Job stayed `Running 0/1` for 25 min. `kube-controller-manager` was in
+  `CrashLoopBackOff` (17 restarts) and `kube-scheduler` had 16 restarts, both with `Failed to renew lease ...
+  context deadline exceeded` / `leaderelection lost`. Earlier the Strimzi operator had died the same way.
+* **What we tried:** etcd log: 50 of the last 200 lines were `apply request took too long` (~200 ms, expected
+  100 ms). `/proc/pressure/io` on the control-plane node: `some avg300=10.73 full avg300=5.03`. Memory was fine
+  (4.0 of 7.6 GiB used). After the build and pulls finished, IO pressure went to 0 and the controller manager
+  recovered by itself within 5 min; the Job turned Complete immediately.
+* **Numbers:** Spark image build 7.5 min + ingest 9.3 min (pip downloads; pyspark wheel 318 MB built from sdist);
+  Hadoop image pull ~20 min per node in parallel.
+* **Fix / decision:** the Strimzi operator runs without leader election (one replica). The kind configs now pass
+  `leader-elect=false` to kube-controller-manager and kube-scheduler through a kubeadm `v1beta4` patch (one
+  control plane, nothing to elect); verified on a throwaway cluster (`--leader-elect=false` in both static pods).
+  The running cluster keeps the old flags until it is recreated. Also: do not build images while the cluster is
+  starting, and load large images once (`kind_load`, 8 min for 2.3 GB into 3 nodes) instead of parallel pulls.
+* **Lesson:** on a laptop cluster etcd shares one disk with image pulls and builds; when IO is saturated, every
+  component that depends on lease renewal fails at once, and the symptoms (stuck Jobs, restarting operators)
+  look unrelated. Check etcd latency and IO pressure before debugging the workload.

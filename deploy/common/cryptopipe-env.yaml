@@ -1,0 +1,22 @@
+# Cluster values of the CRYPTO_* env vars read by cryptopipe.config.Settings. Owner: A (Platform).
+# No namespace on purpose: deploy/scripts/cluster-up.sh applies this same ConfigMap to `ingest`, `spark` and
+# `serving`. Pods use it with:
+#   envFrom:
+#     - configMapRef: { name: cryptopipe-env }
+# Names and values follow docs/contracts.md section 6; change them only through a contract PR.
+# CRYPTO_SYMBOLS_FILE is set inside each image (the path differs per image), so it is not here.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cryptopipe-env
+  labels:
+    app.kubernetes.io/part-of: crypto-pipeline
+    app.kubernetes.io/managed-by: platform
+data:
+  CRYPTO_KAFKA_BOOTSTRAP: "crypto-kafka-bootstrap.kafka:9092"
+  CRYPTO_KAFKA_SECURITY_PROTOCOL: "PLAINTEXT"
+  CRYPTO_LAKE_ROOT: "hdfs://hdfs-namenode.storage:8020/lake"
+  CRYPTO_CHECKPOINT_ROOT: "hdfs://hdfs-namenode.storage:8020/lake/_checkpoints"
+  CRYPTO_CASSANDRA_HOSTS: "cassandra.storage"
+  CRYPTO_CASSANDRA_KEYSPACE: "crypto"
+  CRYPTO_LOG_LEVEL: "INFO"
