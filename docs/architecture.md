@@ -71,8 +71,11 @@ flowchart LR
   GO -.-> ST
 ```
 
-* **Speed layer**: `stream_ohlcv` turns `raw.trades` into 1-minute candles within ~10-40 s (trigger 10 s +
-  watermark 30 s) and upserts them into Cassandra.
+* **Speed layer**: `stream_ohlcv` validates trades, deduplicates with a 2-minute watermark, then commits an
+  internal Parquet handoff. Independent consumers update 1-minute Cassandra candles (30-second watermark),
+  update latest prices with event-time write timestamps, and append finalized candles to HDFS gold. Default
+  triggers are 10 seconds; latency includes multiple queries and must be measured. Finalization requires
+  incoming event time to advance. See [speed-layer.md](speed-layer.md) and [ADR 0006](adr/0006-speed-layer-event-time.md).
 * **Batch layer**: `stream_bronze` lands every Kafka record unchanged in HDFS (the immutable master dataset);
   `batch_load_archive` adds years of history from the Binance archive with the same bronze columns;
   `batch_silver` rebuilds cleaned, deduplicated, typed tables hourly. Gold tables and batch views follow in B2.
@@ -101,7 +104,7 @@ sequenceDiagram
   P->>K: key=BTC-USDT, idempotent producer, acks=all [D3]
   par speed layer
     K->>SO: micro-batch every 10 s
-    Note over SO: validate -> quarantine/ [D1]<br/>watermark 30 s: later trades dropped [L1]<br/>dropDuplicatesWithinWatermark(exchange,symbol,trade_id) [D4]<br/>window 1 min, open/close by min_by/max_by(event_ts) [L2]
+    Note over SO: validate -> quarantine/ [D1]<br/>dedupe watermark 2 min [D4] -> durable Parquet handoff<br/>separate candle query: watermark 30 s [L1]<br/>window 1 min, open/close by min_by/max_by(event_ts,trade_id) [L2]
     SO->>C: foreachBatch upsert ohlcv_1m by PK [D5]<br/>latest_price with writetime = event time [L3]
     C->>G: CQL query every 30 s
   and batch layer
@@ -121,7 +124,7 @@ Where duplicates (D) and late data (L) are handled:
 | D2 | producer after reconnect | gap backfill may re-send trades already sent; tolerated, removed by D4/D7 |
 | D3 | producer -> Kafka | `enable.idempotence=true`: broker discards retried batches |
 | D4 | stream_ohlcv | `dropDuplicatesWithinWatermark` on the business key, state bounded by the watermark |
-| D5 | stream_ohlcv -> Cassandra | upsert by primary key: re-running a micro-batch after a crash rewrites the same rows |
+| D5 | stream_ohlcv -> Cassandra | upsert by primary key: retry rewrites cumulative candle values; updated_at/TTL can refresh; sinks are independent |
 | D6 | stream_bronze | file sink + checkpoint: a batch is committed to `_spark_metadata` exactly once |
 | D7 | batch_silver | `dropDuplicates` over all bronze sources (stream + archive overlap) |
 | D8 | batch_silver | dynamic partition overwrite: reruns replace partitions instead of appending |

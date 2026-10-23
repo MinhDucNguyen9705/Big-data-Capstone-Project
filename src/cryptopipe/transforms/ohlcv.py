@@ -1,4 +1,4 @@
-# Owner: C (Speed layer) | Task: A5 | Status: minimal implementation from the bootstrap; C hardens it
+# Owner: C (Speed layer) | Task: A5
 """1-minute OHLCV candles from validated, deduplicated trades."""
 
 from __future__ import annotations
@@ -38,6 +38,6 @@ def ohlcv_1m(df: DataFrame) -> DataFrame:
         "volume",
         "quote_volume",
         "trades",
-        (F.col("quote_volume") / F.col("volume")).alias("vwap"),
+        F.when(F.col("volume") > 0, F.col("quote_volume") / F.col("volume")).alias("vwap"),
         F.date_format("w.start", "yyyy-MM-dd").alias(PARTITION_DATE),
     ).select(*OHLCV_1M_SCHEMA.fieldNames())

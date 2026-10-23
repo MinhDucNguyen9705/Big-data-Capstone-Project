@@ -39,10 +39,15 @@ cluster, take screenshots into `docs/img/`, then tag `v0.1-checkpoint`.
 - [ ] A3 `crypto ingest binance --dry-run` prints validated trades for 30 s
 
 ### C: Speed layer
-- [ ] A5 transforms hardened (streaming dedupe, VWAP edge cases, more rules) with tests
-- [ ] A6 `stream_bronze` writes bronze Parquet to HDFS
-- [ ] A6 `stream_ohlcv` with watermark writes `ohlcv_1m` and `latest_price` to Cassandra
-- [ ] Integration test shows rows in Cassandra and Parquet files in HDFS
+- [x] A5 transforms hardened (streaming dedupe, VWAP edge cases, more rules) with tests
+- [x] A6 `stream_bronze` writes bronze Parquet to HDFS (verified on local service processes)
+- [x] A6 `stream_ohlcv` with watermark writes `ohlcv_1m` and `latest_price` to Cassandra (local services)
+- [x] Integration test shows rows in Cassandra and Parquet files in HDFS (2026-10-21)
+- [ ] Deploy both streaming SparkApplications to the team's Kubernetes cluster and validate the running demo
+
+Speed-layer implementation/verification: [speed-layer.md](speed-layer.md),
+[streaming journal](journal/streaming.md). The local-service integration gate does not establish that A/E's
+Kubernetes deployment, dashboards, History Server or long-running workload are ready.
 
 ### D: Batch and data
 - [ ] A4 archive downloader with checksum, replayer

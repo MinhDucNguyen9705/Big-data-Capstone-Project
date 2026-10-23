@@ -1,4 +1,4 @@
-# Owner: C (Speed layer) | Task: A5 | Status: batch implemented by the bootstrap; streaming is C's task
+# Owner: C (Speed layer) | Task: A5
 """Trade deduplication on the business key `(exchange, symbol, trade_id)`."""
 
 from __future__ import annotations
@@ -16,5 +16,7 @@ def dedupe_trades(df: DataFrame, streaming: bool = False, watermark: str = "2 mi
     by the watermark).
     """
     if streaming:
-        raise NotImplementedError("Task A5 – owner C: streaming dedupe with dropDuplicatesWithinWatermark")
+        if not df.isStreaming:
+            raise ValueError("streaming=True requires a streaming DataFrame")
+        return df.withWatermark("event_time", watermark).dropDuplicatesWithinWatermark(TRADE_KEY)
     return df.dropDuplicates(TRADE_KEY)

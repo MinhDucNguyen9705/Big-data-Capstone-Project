@@ -68,7 +68,7 @@ def test_validate_trades_reasons(spark, value, reason):
 def test_dedupe_batch(spark):
     df = parse_trades(kafka_df(spark, [trade(trade_id="1"), trade(trade_id="1"), trade(trade_id="2")]))
     assert dedupe_trades(df).count() == 2
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(ValueError, match="streaming DataFrame"):
         dedupe_trades(df, streaming=True)
 
 
@@ -102,3 +102,55 @@ def test_ohlcv_groups_by_exchange_and_symbol(spark):
     out = ohlcv_1m(parse_trades(kafka_df(spark, values)))
     assert out.count() == 3
     assert out.agg(F.sum("trades")).first()[0] == 3
+
+
+@pytest.mark.parametrize(
+    "value, reason",
+    [
+        (trade(price=float("nan")), "non_finite_price"),
+        (trade(price=float("inf")), "non_finite_price"),
+        (trade(qty=float("inf")), "non_finite_qty"),
+        (trade(trade_id="  "), "empty_trade_id"),
+        (trade(schema_version=2), "unsupported_schema_version"),
+        (trade(unexpected="x"), "unknown_fields"),
+        (trade(event_ts=T * 1000), "invalid_timestamp"),
+        (trade(event_ts=9_223_372_036_854_775_807), "invalid_timestamp"),
+        (trade(ingest_ts=T // 1000), "invalid_timestamp"),
+        (trade()[:-1], "malformed"),
+        (trade(price="not a number"), "malformed"),
+    ],
+)
+def test_quality_rejects_corrupt_contract_and_timestamp_units(spark, value, reason):
+    good, bad = validate_trades(parse_trades(kafka_df(spark, [value])))
+    assert good.count() == 0
+    row = bad.first()
+    assert row.reason == reason
+    assert row.raw == value
+
+
+def test_ohlcv_equal_timestamp_tiebreak_and_zero_volume(spark):
+    frame = parse_trades(
+        kafka_df(
+            spark,
+            [
+                trade(trade_id="b", price=2.0, qty=0.0),
+                trade(trade_id="a", price=1.0, qty=0.0),
+            ],
+        )
+    )
+    row = ohlcv_1m(frame).first()
+    assert (row.open, row.close, row.volume, row.vwap) == (1.0, 2.0, 0.0, None)
+
+
+def test_parse_retains_kafka_lineage_for_quarantine(spark):
+    raw = kafka_df(spark, [trade(price=-1)]).select(
+        "value",
+        F.lit("raw.trades").alias("topic"),
+        F.lit(2).alias("partition"),
+        F.lit(1234).cast("long").alias("offset"),
+        F.current_timestamp().alias("timestamp"),
+    )
+    _, bad = validate_trades(parse_trades(raw))
+    row = bad.first()
+    assert (row.topic, row.partition, row.offset, row.reason) == ("raw.trades", 2, 1234, "non_positive_price")
+    assert row.timestamp is not None
