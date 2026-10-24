@@ -1,8 +1,6 @@
 # Owners: C (stream_*), D (batch_*, profile) | Task: A6/A8. Remove a skip marker when that job runs locally.
 import importlib
 
-import pytest
-
 from cryptopipe.jobs import JOBS
 
 
