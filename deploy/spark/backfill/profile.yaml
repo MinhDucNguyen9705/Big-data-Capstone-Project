@@ -1,0 +1,54 @@
+# Owner: D (Batch and data), task A8. On demand only (not applied by `make deploy`); see README.md here.
+# Data profile of the lake (sizes, rows per symbol/day, nulls, duplicates); output in the driver log
+# (Markdown for docs/data.md) and CSVs under lake _profile/.
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: batch-profile
+  namespace: spark
+  labels:
+    app.kubernetes.io/part-of: crypto-pipeline
+    app.kubernetes.io/component: batch
+spec:
+  type: Python
+  pythonVersion: "3"
+  mode: cluster
+  sparkVersion: 3.5.9
+  image: cryptopipe-spark:latest
+  imagePullPolicy: IfNotPresent
+  mainApplicationFile: local:///opt/cryptopipe/jobs/profile.py
+  arguments: ["--detail"]
+  hadoopConfigMap: hadoop-conf
+  sparkConf:
+    spark.kubernetes.driver.service.deleteOnTermination: "true"
+  restartPolicy:
+    type: Never                        # one-off backfill: inspect a failure, fix, re-apply (reruns are idempotent)
+  timeToLiveSeconds: 86400
+  driver:
+    cores: 1
+    coreLimit: "1"
+    memory: 1g
+    memoryOverhead: 384m
+    serviceAccount: spark
+    envFrom:
+      - configMapRef: { name: cryptopipe-env }
+    labels:
+      app.kubernetes.io/part-of: crypto-pipeline
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "4040"
+      prometheus.io/path: /metrics/prometheus/
+  executor:
+    instances: 1
+    cores: 1
+    coreLimit: "1"
+    memory: 1500m
+    memoryOverhead: 384m
+    envFrom:
+      - configMapRef: { name: cryptopipe-env }
+    labels:
+      app.kubernetes.io/part-of: crypto-pipeline
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "4040"
+      prometheus.io/path: /metrics/executors/prometheus/

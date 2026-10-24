@@ -1,7 +1,8 @@
 import pytest
+import typer
 from typer.testing import CliRunner
 
-from cryptopipe.cli import NOT_IMPLEMENTED_EXIT, app
+from cryptopipe.cli import NOT_IMPLEMENTED_EXIT, _run, app
 
 runner = CliRunner()
 
@@ -39,24 +40,15 @@ def test_contracts_show():
         assert text in result.output
 
 
-@pytest.mark.parametrize(
-    "args, owner",
-    [
-        (["ingest", "binance", "--dry-run"], "task A3, owner B"),
-        (["ingest", "fear-greed", "--dry-run"], "task A3, owner B"),
-        (
-            ["backfill", "download", "--symbols", "BTCUSDT", "--start", "2025-09-01", "--end", "2025-09-01"],
-            "task A4, owner D",
-        ),
-        (["replay", "--path", "x.csv", "--dry-run"], "task A4, owner D"),
-        (["job", "run", "profile"], "task A8, owner D"),
-        (["job", "run", "stream_ohlcv", "--local", "--foo", "1"], "task A6, owner C"),
-    ],
-)
-def test_stub_commands_exit_2_with_owner(args, owner):
-    result = runner.invoke(app, args)
-    assert result.exit_code == NOT_IMPLEMENTED_EXIT
-    assert f"not implemented yet ({owner})" in result.output
+def test_stub_maps_to_exit_2_with_owner(capsys):
+    # Every bootstrap stub is implemented now; the mapping stays for commands added later.
+    def stub():
+        raise NotImplementedError("Task X9 – owner Z")
+
+    with pytest.raises(typer.Exit) as exc:
+        _run("X9", "Z", stub)
+    assert exc.value.exit_code == NOT_IMPLEMENTED_EXIT
+    assert "not implemented yet (task X9, owner Z)" in capsys.readouterr().err
 
 
 def test_replay_dry_run_from_cli(fixtures_dir):

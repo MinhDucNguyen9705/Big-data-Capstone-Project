@@ -1,0 +1,68 @@
+# Owner: D (Batch and data), task A6/A7. Copied from deploy/spark/examples/hdfs-check.yaml (A).
+# Hourly batch layer refresh: bronze (stream + archive) -> silver trades/klines + silver.trades_bucketed for the
+# last 2 UTC days (today and yesterday: late trades and midnight spill-over). Safe to apply with
+# `make deploy WITH_JOBS=1`: with no bronze yet the job prints "nothing to do" and succeeds.
+# A full rebuild of every date is deploy/spark/backfill/silver-rebuild.yaml.
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: ScheduledSparkApplication
+metadata:
+  name: batch-silver
+  namespace: spark
+  labels:
+    app.kubernetes.io/part-of: crypto-pipeline
+    app.kubernetes.io/component: batch
+spec:
+  schedule: "20 * * * *"               # UTC, every hour at :20
+  concurrencyPolicy: Forbid            # never two silver runs on the same partitions
+  successfulRunHistoryLimit: 3
+  failedRunHistoryLimit: 3
+  template:
+    type: Python
+    pythonVersion: "3"
+    mode: cluster
+    sparkVersion: 3.5.9
+    image: cryptopipe-spark:latest
+    imagePullPolicy: IfNotPresent
+    mainApplicationFile: local:///opt/cryptopipe/jobs/batch_silver.py
+    arguments: ["--recent-days", "2"]
+    hadoopConfigMap: hadoop-conf
+    sparkConf:
+      spark.kubernetes.driver.service.deleteOnTermination: "true"
+      # silver.trades_bucketed lives in the warehouse: keep it on HDFS, not in the pod's working directory.
+      spark.sql.warehouse.dir: hdfs://hdfs-namenode.storage:8020/user/spark/warehouse
+      spark.sql.shuffle.partitions: "8"
+    restartPolicy:
+      type: OnFailure
+      onFailureRetries: 1
+      onFailureRetryInterval: 60
+      onSubmissionFailureRetries: 3
+      onSubmissionFailureRetryInterval: 30
+    timeToLiveSeconds: 3600
+    driver:
+      cores: 1
+      coreLimit: "1"
+      memory: 1g
+      memoryOverhead: 384m
+      serviceAccount: spark
+      envFrom:
+        - configMapRef: { name: cryptopipe-env }
+      labels:
+        app.kubernetes.io/part-of: crypto-pipeline
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "4040"
+        prometheus.io/path: /metrics/prometheus/
+    executor:
+      instances: 1
+      cores: 1
+      coreLimit: "1"
+      memory: 1500m
+      memoryOverhead: 384m
+      envFrom:
+        - configMapRef: { name: cryptopipe-env }
+      labels:
+        app.kubernetes.io/part-of: crypto-pipeline
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "4040"
+        prometheus.io/path: /metrics/executors/prometheus/

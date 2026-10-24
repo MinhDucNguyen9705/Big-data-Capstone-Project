@@ -10,8 +10,11 @@
 /lake/gold
 /lake/gold/ohlcv_1m
 /lake/quarantine
+/lake/quarantine/archive_trades
 /lake/quarantine/klines
 /lake/quarantine/trades
+/lake/raw
+/lake/raw/archive
 /lake/silver
 /lake/silver/klines
 /lake/silver/trades

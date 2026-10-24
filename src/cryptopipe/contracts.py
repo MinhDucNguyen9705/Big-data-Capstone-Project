@@ -75,8 +75,10 @@ LAKE_SILVER_TRADES = "silver/trades"  # batch_silver; typed, validated, deduped;
 LAKE_SILVER_KLINES = "silver/klines"  # batch_silver; partitioned by date
 LAKE_GOLD = "gold"  # gold/<table>, defined in Part B (B2)
 LAKE_GOLD_OHLCV_1M = "gold/ohlcv_1m"  # 1m candles (demo, stream_ohlcv append sink); partitioned by date
-LAKE_QUARANTINE_TRADES = "quarantine/trades"  # rejected rows + `reason`; partitioned by date
-LAKE_QUARANTINE_KLINES = "quarantine/klines"
+LAKE_QUARANTINE_TRADES = "quarantine/trades"  # stream_ohlcv (C) rejects, streaming file sink; partitioned by date
+LAKE_QUARANTINE_ARCHIVE_TRADES = "quarantine/archive_trades"  # batch_silver (D) rejects of archive trades; by date
+LAKE_QUARANTINE_KLINES = "quarantine/klines"  # batch_silver (D) kline rejects; partitioned by date
+LAKE_RAW_ARCHIVE = "raw/archive"  # landing zone: downloaded archive CSVs, <kind>/<SYMBOL>/*.csv (D)
 LAKE_CHECKPOINTS = "_checkpoints"  # <job>/<query>; settings.checkpoint_root overrides
 LAKE_PROFILE = "_profile"  # data profile reports (D, task A8)
 
@@ -90,7 +92,9 @@ LAKE_PATHS: dict[str, str] = {
     "gold": LAKE_GOLD,
     "gold_ohlcv_1m": LAKE_GOLD_OHLCV_1M,
     "quarantine_trades": LAKE_QUARANTINE_TRADES,
+    "quarantine_archive_trades": LAKE_QUARANTINE_ARCHIVE_TRADES,
     "quarantine_klines": LAKE_QUARANTINE_KLINES,
+    "raw_archive": LAKE_RAW_ARCHIVE,
     "checkpoints": LAKE_CHECKPOINTS,
     "profile": LAKE_PROFILE,
 }

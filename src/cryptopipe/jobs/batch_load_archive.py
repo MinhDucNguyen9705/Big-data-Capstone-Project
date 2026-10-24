@@ -10,11 +10,13 @@ The symbol of each file comes from `--symbol` or from the file name (`BTCUSDT-tr
 writes, so it refuses to drop rows of symbols that are not part of the run unless `--replace-dates` is given.
 
 Run: `crypto job run batch_load_archive [--local] [job args...]`, e.g.
-`crypto job run batch_load_archive --local --input ./data/archive/trades`.
+`crypto job run batch_load_archive --local --input ./data/archive/trades`. Without `--input` it reads the lake
+landing zone `LAKE_RAW_ARCHIVE/<kind>` (where the cluster download Job puts the CSVs).
 """
 
 from __future__ import annotations
 
+import argparse
 import time
 
 from pyspark.sql import functions as F
@@ -68,21 +70,26 @@ def _symbol_from_file():
     return F.create_map(*pairs)[binance]
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Entry point. `argv` are the job arguments (without the job name); returns a process exit code."""
+def build_parser() -> argparse.ArgumentParser:
     parser = base_parser("batch_load_archive", "Binance archive CSVs -> bronze/archive_* Parquet")
-    parser.add_argument("--input", help="CSV file or directory (recursive); default ./data/archive/<kind>")
+    parser.add_argument("--input", help="CSV file or directory (recursive); default: lake raw/archive/<kind>")
     parser.add_argument("--kind", choices=sorted(KINDS), default="trades")
     parser.add_argument("--symbol", help="Canonical (BTC-USDT) or Binance (BTCUSDT) symbol of every input file")
     parser.add_argument(
         "--replace-dates", action="store_true",
         help="Allow dropping rows of other symbols in the date partitions this run rewrites",
     )  # fmt: skip
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Entry point. `argv` are the job arguments (without the job name); returns a process exit code."""
+    args = build_parser().parse_args(argv)
 
     schema, order_col, to_contract, value_cols, ts_col, rel_path = KINDS[args.kind]
-    input_path = to_spark_path(args.input or f"data/archive/{args.kind}")
-    target = lake_path(lake_root(args), rel_path)
+    root = lake_root(args)
+    input_path = to_spark_path(args.input) if args.input else lake_path(root, contracts.LAKE_RAW_ARCHIVE, args.kind)
+    target = lake_path(root, rel_path)
     start = time.perf_counter()
 
     spark = session(f"batch_load_archive_{args.kind}", args.local)

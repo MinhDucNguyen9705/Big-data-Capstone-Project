@@ -139,8 +139,10 @@ Note: when reading a directory, Spark's partition discovery returns `date` as `D
 | `LAKE_SILVER_KLINES` | `silver/klines` | `batch_silver` (D) | date | typed `Kline` columns |
 | `LAKE_GOLD_OHLCV_1M` | `gold/ohlcv_1m` | demo, `stream_ohlcv` (C) | date | `OHLCV_1M_SCHEMA` |
 | `LAKE_GOLD` | `gold/<table>` | D (B2) | per table | indicators, daily stats, ... |
-| `LAKE_QUARANTINE_TRADES` | `quarantine/trades` | C, D | date | rejected rows + `reason` |
-| `LAKE_QUARANTINE_KLINES` | `quarantine/klines` | C, D | date | rejected rows + `reason` |
+| `LAKE_QUARANTINE_TRADES` | `quarantine/trades` | `stream_ohlcv` (C), streaming file sink | date | rejected rows + `reason` |
+| `LAKE_QUARANTINE_ARCHIVE_TRADES` | `quarantine/archive_trades` | `batch_silver` (D) | date | rejected archive trades + `reason` |
+| `LAKE_QUARANTINE_KLINES` | `quarantine/klines` | `batch_silver` (D) | date | rejected rows + `reason` |
+| `LAKE_RAW_ARCHIVE` | `raw/archive` | archive download (D) | `<kind>/<SYMBOL>/` | downloaded Binance archive CSVs (input of `batch_load_archive`) |
 | `LAKE_CHECKPOINTS` | `_checkpoints/<job>/<query>` | streaming jobs (C) | | `CRYPTO_CHECKPOINT_ROOT` overrides |
 | `LAKE_PROFILE` | `_profile` | `profile` job (D) | | data profile reports |
 
@@ -148,7 +150,10 @@ Note: when reading a directory, Spark's partition discovery returns `date` as `D
 `key` (string), `value` (string, raw JSON), `topic`, `partition` (int), `offset` (long), `kafka_ts` (timestamp),
 `source` (`kafka` or `archive`), `date`, `hour`. Archive rows use `topic = "archive"`, `partition = -1`,
 `offset` = row number, and `value` = the row converted to `Trade`/`Kline` JSON, so silver parses both the same way.
-A streaming sink owns its directory (`_spark_metadata`), so batch loads never write into `bronze/trades`.
+A streaming sink owns its directory (`_spark_metadata`), so batch loads never write into `bronze/trades`,
+and `batch_silver` never writes into `quarantine/trades`: invalid trades from stream bronze are already
+quarantined there by `stream_ohlcv` (same `validate_trades` rules); invalid archive trades go to
+`quarantine/archive_trades`.
 
 **OHLCV 1m columns** (`contracts.OHLCV_1M_SCHEMA`): `exchange`, `symbol`, `window_start`, `window_end`
 (timestamps, UTC), `open`, `high`, `low`, `close`, `volume`, `quote_volume`, `trades` (long), `vwap`, `date`.
