@@ -10,6 +10,8 @@ Run: `crypto job run profile [--local] [job args...]`, e.g.
 
 from __future__ import annotations
 
+import argparse
+
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
@@ -32,14 +34,15 @@ STORAGE_TABLES = [
     for name, rel in contracts.LAKE_PATHS.items()
     if name.startswith(("bronze_", "silver_", "quarantine_")) or name == "gold_ohlcv_1m"
 ]
-# silver table -> (bronze tables, quarantine table, silver table, event-time column)
+# silver table -> (bronze tables, quarantine tables, silver table, event-time column)
 SILVER = {
     "trades": (
-        [contracts.LAKE_BRONZE_TRADES, contracts.LAKE_BRONZE_ARCHIVE_TRADES], contracts.LAKE_QUARANTINE_TRADES,
+        [contracts.LAKE_BRONZE_TRADES, contracts.LAKE_BRONZE_ARCHIVE_TRADES],
+        [contracts.LAKE_QUARANTINE_TRADES, contracts.LAKE_QUARANTINE_ARCHIVE_TRADES],
         contracts.LAKE_SILVER_TRADES, "event_ts",
     ),
     "klines": (
-        [contracts.LAKE_BRONZE_KLINES, contracts.LAKE_BRONZE_ARCHIVE_KLINES], contracts.LAKE_QUARANTINE_KLINES,
+        [contracts.LAKE_BRONZE_KLINES, contracts.LAKE_BRONZE_ARCHIVE_KLINES], [contracts.LAKE_QUARANTINE_KLINES],
         contracts.LAKE_SILVER_KLINES, "open_ts",
     ),
 }  # fmt: skip
@@ -78,12 +81,16 @@ def write_csv(df: DataFrame, path: str) -> None:
     df.coalesce(1).write.mode("overwrite").option("header", True).csv(path)
 
 
+def build_parser() -> argparse.ArgumentParser:
+    parser = base_parser("profile", "Data profile of the lake (row counts, time ranges, nulls, sizes)")
+    parser.add_argument("--raw", help="Raw archive CSV directory for the size ratio (default: lake raw/archive)")
+    parser.add_argument("--detail", action="store_true", help="Also print the per symbol/day table")
+    return parser
+
+
 def main(argv: list[str] | None = None) -> int:
     """Entry point. `argv` are the job arguments (without the job name); returns a process exit code."""
-    parser = base_parser("profile", "Data profile of the lake (row counts, time ranges, nulls, sizes)")
-    parser.add_argument("--raw", default="data/archive", help="Raw archive CSV directory, for the size ratio")
-    parser.add_argument("--detail", action="store_true", help="Also print the per symbol/day table")
-    args = parser.parse_args(argv)
+    args = build_parser().parse_args(argv)
 
     root = lake_root(args)
     out = lake_path(root, contracts.LAKE_PROFILE)
@@ -95,9 +102,10 @@ def main(argv: list[str] | None = None) -> int:
         size = path_size(spark, lake_path(root, rel))
         if size is not None:
             storage.append((name, rel, size.bytes, size.files))
-    raw = path_size(spark, to_spark_path(args.raw))
+    raw_path = to_spark_path(args.raw) if args.raw else lake_path(root, contracts.LAKE_RAW_ARCHIVE)
+    raw = path_size(spark, raw_path)
     if raw is not None:
-        storage.append(("raw_archive_csv", args.raw, raw.bytes, raw.files))
+        storage.append(("raw_archive_csv", args.raw or contracts.LAKE_RAW_ARCHIVE, raw.bytes, raw.files))
     sizes = {name: n for name, _rel, n, _files in storage}
 
     print(f"# Data profile of {root}\n")
@@ -114,12 +122,12 @@ def main(argv: list[str] | None = None) -> int:
 
     # Silver tables: rows in/out, duplicates removed, per symbol and per symbol/day
     summary = []
-    for kind, (bronze_rels, quarantine_rel, silver_rel, ts_col) in SILVER.items():
+    for kind, (bronze_rels, quarantine_rels, silver_rel, ts_col) in SILVER.items():
         silver = read_parquet_if_exists(spark, lake_path(root, silver_rel))
         if silver is None:
             continue
         bronze_rows = count_rows(spark, root, bronze_rels)
-        quarantined = count_rows(spark, root, [quarantine_rel])
+        quarantined = count_rows(spark, root, quarantine_rels)
         detail = by_symbol_day(silver, ts_col).cache()
         rows = [r.asDict() for r in detail.collect()]
         silver_rows = sum(r["rows"] for r in rows)

@@ -81,3 +81,17 @@ Scope: making the layers talk to each other on the cluster (DNS, jars, configs).
 * **Lesson:** on a laptop cluster etcd shares one disk with image pulls and builds; when IO is saturated, every
   component that depends on lease renewal fails at once, and the symptoms (stuck Jobs, restarting operators)
   look unrelated. Check etcd latency and IO pressure before debugging the workload.
+
+## 2026-10-24: `make test` hangs after merging every member's PR
+
+* **Context / symptom:** after `main` merged platform, ingestion, batchdata and speed_layer, `pytest` ran for
+  more than 10 minutes with no output (before: about 25 s). `make lint` also failed (unused `import pytest`).
+* **What we tried:** ran the suite with `-v` into a file: it stopped at
+  `tests/unit/test_cli.py::test_stub_commands_exit_2_with_owner`. That bootstrap test asserts every command is a
+  stub (exit 2). The merges re-added rows for commands that are now implemented: `ingest binance --dry-run`
+  opened a real Binance WebSocket and never returned; the D rows would download from data.binance.vision.
+* **Numbers:** 141 passed with that test deselected (46 s); `src/` has no `NotImplementedError` stub left.
+* **Fix / decision:** replaced the stale parametrized test with one offline test of the stub -> exit 2 mapping
+  (`cli._run`), removed the unused import. Full suite: 157 passed in 49 s.
+* **Lesson:** a test that encodes "this is not implemented yet" must be deleted by the PR that implements it;
+  merge conflict resolution can silently resurrect it. CLI tests must never reach the network.

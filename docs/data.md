@@ -35,7 +35,7 @@ so mixed ranges load in one run. Event time in the lake is always UTC ms (`event
 
 ```mermaid
 flowchart LR
-  A[data.binance.vision] -->|crypto backfill download<br/>SHA256 verified, resumable| R[(raw CSV<br/>data/archive or HDFS)]
+  A[data.binance.vision] -->|crypto backfill download<br/>SHA256 verified, resumable| R[(raw CSV<br/>data/archive or lake raw/archive)]
   R -->|crypto replay<br/>N x real time| K[[Kafka raw.trades]]
   R -->|batch_load_archive| BA[(bronze/archive_trades<br/>bronze/archive_klines)]
   K -->|stream_bronze, owner C| BS[(bronze/trades<br/>bronze/klines)]
@@ -43,7 +43,7 @@ flowchart LR
   BS --> S
   S --> ST[(silver/trades, silver/klines<br/>partitioned by date)]
   S --> SB[(silver.trades_bucketed<br/>16 buckets by symbol)]
-  S --> Q[(quarantine/trades, quarantine/klines)]
+  S --> Q[(quarantine/archive_trades<br/>quarantine/klines)]
   ST --> P[profile job -> _profile/ + this page]
 ```
 
@@ -53,8 +53,16 @@ flowchart LR
 | Checkpoint download | `make data-download` (30 days trades, 2 years 1m klines, tracked symbols; override `SYMBOLS`, `TRADES_START`, ...) | same | same |
 | Replay | `crypto replay --path ./data/archive/trades --speed 50 [--rebase-time] [--dry-run]` | `raw.trades` (+ `dlq.ingest`) | |
 | Load bronze | `crypto job run batch_load_archive [--local] --input <dir> [--kind klines]` | `bronze/archive_trades` / `archive_klines`, partition `date` = event date | replaces the date partitions it writes |
-| Silver | `crypto job run batch_silver [--local] [--kind trades\|klines\|all] [--dates d1,d2]` | `silver/trades`, `silver/klines`, `quarantine/*`, `silver.trades_bucketed` | replaces the date partitions it writes |
-| Profile | `crypto job run profile [--local] --raw ./data/archive [--detail]` | Markdown on stdout, CSVs in `_profile/` | overwrites |
+| Silver | `crypto job run batch_silver [--local] [--kind trades\|klines\|all] [--dates d1,d2 \| --recent-days N]` | `silver/trades`, `silver/klines`, `quarantine/archive_trades`, `quarantine/klines`, `silver.trades_bucketed` | replaces the date partitions it writes |
+| Profile | `crypto job run profile [--local] [--raw ./data/archive] [--detail]` | Markdown on stdout, CSVs in `_profile/` | overwrites |
+
+Without `--input` / `--raw`, `batch_load_archive` and `profile` use the lake landing zone `raw/archive/<kind>`
+(`contracts.LAKE_RAW_ARCHIVE`), where the cluster download Job puts the CSVs.
+
+**On the cluster** (runbook: [deploy/spark/backfill/README.md](../deploy/spark/backfill/README.md)):
+`archive-download-job.yaml` (download + `hdfs dfs -put` into `/lake/raw/archive`) → `load-archive.yaml` →
+`silver-rebuild.yaml` → `profile.yaml`, all on demand. `deploy/spark/batch-silver.yaml` is the hourly
+`ScheduledSparkApplication` (`--recent-days 2`) applied by `make deploy WITH_JOBS=1`.
 
 Rules the batch jobs follow:
 
@@ -66,7 +74,10 @@ Rules the batch jobs follow:
   `partition = -1`, `offset` = row number in the file), so silver parses stream and archive bronze the same way.
 * **Lambda overlap**: stream and archive carry the same Binance trade ids; silver dedupes on
   `(exchange, symbol, trade_id)` (klines on `(exchange, symbol, interval, open_ts)`).
-* **Quarantine, never drop**: rows failing `validate_trades` / `validate_klines` go to `quarantine/*` with `reason`.
+* **Quarantine, never drop**: rows failing `validate_trades` / `validate_klines` keep a `reason`. Invalid archive
+  trades go to `quarantine/archive_trades`, klines to `quarantine/klines`. Invalid trades from stream bronze are
+  only counted: `stream_ohlcv` (C) already wrote them to `quarantine/trades`, a streaming file sink that a batch job
+  must never write into (`batch_silver` refuses any folder with `_spark_metadata`).
 * **Sorted files**: silver is written one task per date, sorted by `symbol, event_ts` (row-group min/max
   statistics then prune by symbol and time).
 * **Untracked symbols** (e.g. the extra kline symbols of the checkpoint target) are skipped by

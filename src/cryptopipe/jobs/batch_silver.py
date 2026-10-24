@@ -5,8 +5,13 @@ Union bronze stream and archive, parse_trades -> validate_trades (bad -> quarant
 sort within partitions by symbol, event_ts, write `LAKE_SILVER_TRADES` partitioned by date (dynamic overwrite)
 and a bucketed catalog table `silver.trades_bucketed` (16 buckets by symbol).
 
+Invalid archive trades go to `LAKE_QUARANTINE_ARCHIVE_TRADES`. Invalid trades from stream bronze are only
+counted: `stream_ohlcv` (C) already quarantined them in `LAKE_QUARANTINE_TRADES`, its streaming file sink, which
+a batch job must never write into. Kline rejects go to `LAKE_QUARANTINE_KLINES`.
+
 Klines go the same way (`transforms.klines`): bronze/klines + bronze/archive_klines -> `LAKE_SILVER_KLINES`.
-`--dates` limits a run to some event dates (the hourly schedule); without it every bronze row is rebuilt.
+`--dates` limits a run to some event dates; `--recent-days N` to the last N UTC days (the hourly schedule);
+without either every bronze row is rebuilt.
 `--input` replaces the bronze sources with a JSONL file of `Trade` values (tests, laptop runs).
 
 Run: `crypto job run batch_silver [--local] [job args...]`, e.g.
@@ -15,9 +20,10 @@ Run: `crypto job run batch_silver [--local] [job args...]`, e.g.
 
 from __future__ import annotations
 
+import argparse
 import time
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from functools import reduce
 
 from pyspark.sql import DataFrame, SparkSession
@@ -35,6 +41,7 @@ from cryptopipe.jobs._batch import (
     session,
     split_csv_arg,
 )
+from cryptopipe.transforms.archive import ARCHIVE_TOPIC
 from cryptopipe.transforms.dedupe import dedupe_trades
 from cryptopipe.transforms.klines import KLINE_COLUMNS, dedupe_klines, parse_klines, validate_klines
 from cryptopipe.transforms.normalize import TRADE_COLUMNS, parse_trades
@@ -55,6 +62,7 @@ class SilverResult:
     rows_out: int
     dates: list[str]
     path: str
+    invalid_stream: int = 0  # part of `invalid` already quarantined by stream_ohlcv
 
 
 def bronze_dates(dates: list[str]) -> list[str]:
@@ -64,8 +72,17 @@ def bronze_dates(dates: list[str]) -> list[str]:
     return sorted(days)
 
 
+def recent_days(n: int, today: date | None = None) -> list[str]:
+    """The last `n` UTC dates, today included (oldest first)."""
+    today = today or datetime.now(UTC).date()
+    return [(today - timedelta(days=i)).isoformat() for i in reversed(range(n))]
+
+
 def read_bronze(spark: SparkSession, root: str, rel_paths: list[str], dates: list[str]) -> DataFrame | None:
-    """Union of the `value` column of every existing bronze table in `rel_paths` (None if none exists)."""
+    """Union of `value` and `topic` of every existing bronze table in `rel_paths` (None if none exists).
+
+    `topic` tells stream rows (`raw.trades`) from archive rows (`archive`); `parse_trades` keeps it.
+    """
     frames = []
     for rel in rel_paths:
         df = read_parquet_if_exists(spark, lake_path(root, rel))
@@ -73,11 +90,15 @@ def read_bronze(spark: SparkSession, root: str, rel_paths: list[str], dates: lis
             continue
         if dates:
             df = df.filter(date_filter(bronze_dates(dates)))
-        frames.append(df.select("value"))
+        frames.append(df.select("value", "topic"))
     return reduce(DataFrame.unionByName, frames) if frames else None
 
 
 def write_partitioned(df: DataFrame, path: str) -> None:
+    """Dynamic overwrite of the date partitions in `df`. Refuses a streaming sink directory (`_spark_metadata`):
+    its readers only see files in the sink's log, and an overwrite would delete files the log points to."""
+    if path_exists(df.sparkSession, f"{path}/_spark_metadata"):
+        raise RuntimeError(f"{path} is a streaming file sink; batch jobs must not write into it")
     df.write.mode("overwrite").partitionBy(contracts.PARTITION_DATE).parquet(path)
 
 
@@ -125,7 +146,7 @@ KINDS = {
     # kind -> (bronze values -> (parsed, bad, silver), bronze tables, silver path, quarantine path, sort columns)
     "trades": (
         silver_trades, [contracts.LAKE_BRONZE_TRADES, contracts.LAKE_BRONZE_ARCHIVE_TRADES],
-        contracts.LAKE_SILVER_TRADES, contracts.LAKE_QUARANTINE_TRADES, ["symbol", "event_ts", "trade_id"],
+        contracts.LAKE_SILVER_TRADES, contracts.LAKE_QUARANTINE_ARCHIVE_TRADES, ["symbol", "event_ts", "trade_id"],
     ),
     "klines": (
         silver_klines, [contracts.LAKE_BRONZE_KLINES, contracts.LAKE_BRONZE_ARCHIVE_KLINES],
@@ -148,6 +169,10 @@ def run_kind(
     # the whole input in memory just to count it.
     silver = silver.persist()
     rows_in, invalid, rows_out = parsed.count(), bad.count(), silver.count()
+    # Stream rejects are already in quarantine/trades (stream_ohlcv); only archive / --input rows are written.
+    from_stream = F.coalesce(F.col("topic") != ARCHIVE_TOPIC, F.lit(False)) if "topic" in bad.columns else F.lit(False)
+    invalid_stream = bad.filter(from_stream).count() if invalid else 0
+    to_quarantine = bad.filter(~from_stream)
     out_dates = sorted(str(r[0]) for r in silver.select(contracts.PARTITION_DATE).distinct().collect())
 
     # One task per date, sorted inside: good min/max stats per row group for symbol and time pruning. The sort
@@ -156,37 +181,50 @@ def run_kind(
     ordered = silver.repartition(contracts.PARTITION_DATE).sortWithinPartitions(contracts.PARTITION_DATE, *sort_cols)
     silver_path = lake_path(root, silver_rel)
     write_partitioned(ordered, silver_path)
-    if invalid:
-        write_partitioned(bad, lake_path(root, quarantine_rel))
+    if invalid > invalid_stream:
+        write_partitioned(to_quarantine, lake_path(root, quarantine_rel))
     if kind == "trades" and bucketed:
         write_bucketed(spark, silver)
 
     silver.unpersist()
-    return SilverResult(kind, rows_in, invalid, rows_in - invalid - rows_out, rows_out, out_dates, silver_path)
+    return SilverResult(
+        kind, rows_in, invalid, rows_in - invalid - rows_out, rows_out, out_dates, silver_path, invalid_stream
+    )
 
 
 def print_result(r: SilverResult) -> None:
     print(f"batch_silver ({r.kind}) -> {r.path}")
     print(f"  rows in             {r.rows_in:>12,}")
     print(f"  invalid (quarantine){r.invalid:>12,}")
+    if r.invalid_stream:
+        print(f"    of which stream   {r.invalid_stream:>12,}  (already in quarantine/trades by stream_ohlcv)")
     print(f"  duplicates removed  {r.duplicates_removed:>12,}")
     print(f"  rows out            {r.rows_out:>12,}")
     if r.dates:
         print(f"  date partitions     {len(r.dates)} ({r.dates[0]} .. {r.dates[-1]})")
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Entry point. `argv` are the job arguments (without the job name); returns a process exit code."""
+def build_parser() -> argparse.ArgumentParser:
     parser = base_parser("batch_silver", "Bronze (stream + archive) -> silver trades and klines")
     parser.add_argument("--input", help="JSONL of Trade values instead of the bronze tables (trades only)")
     parser.add_argument("--kind", choices=["trades", "klines", "all"], default="all")
-    parser.add_argument("--dates", help="Comma-separated event dates yyyy-MM-dd to rebuild (default: all)")
+    window = parser.add_mutually_exclusive_group()
+    window.add_argument("--dates", help="Comma-separated event dates yyyy-MM-dd to rebuild (default: all)")
+    window.add_argument("--recent-days", type=int, help="Rebuild the last N UTC days, today included (schedules)")
     parser.add_argument("--no-bucketed", action="store_true", help=f"Skip the {BUCKETED_TABLE} catalog table")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Entry point. `argv` are the job arguments (without the job name); returns a process exit code."""
+    parser = build_parser()
     args = parser.parse_args(argv)
 
     start = time.perf_counter()
     root = lake_root(args)
-    dates = split_csv_arg(args.dates)
+    if args.recent_days is not None and args.recent_days < 1:
+        parser.error("--recent-days must be >= 1")
+    dates = recent_days(args.recent_days) if args.recent_days else split_csv_arg(args.dates)
     for d in dates:
         date.fromisoformat(d)  # fail fast on a typo
     spark = session("batch_silver", args.local)

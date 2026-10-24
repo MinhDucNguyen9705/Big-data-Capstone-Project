@@ -1,0 +1,56 @@
+# Owner: D (Batch and data), task A6/A8. On demand only (not applied by `make deploy`); see README.md here.
+# Full rebuild of silver (every bronze date) + silver.trades_bucketed, after a backfill or a rule change.
+# The hourly deploy/spark/batch-silver.yaml only refreshes the last 2 days.
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: batch-silver-rebuild
+  namespace: spark
+  labels:
+    app.kubernetes.io/part-of: crypto-pipeline
+    app.kubernetes.io/component: batch
+spec:
+  type: Python
+  pythonVersion: "3"
+  mode: cluster
+  sparkVersion: 3.5.9
+  image: cryptopipe-spark:latest
+  imagePullPolicy: IfNotPresent
+  mainApplicationFile: local:///opt/cryptopipe/jobs/batch_silver.py
+  arguments: []
+  hadoopConfigMap: hadoop-conf
+  sparkConf:
+    spark.kubernetes.driver.service.deleteOnTermination: "true"
+    spark.sql.warehouse.dir: hdfs://hdfs-namenode.storage:8020/user/spark/warehouse   # silver.trades_bucketed
+    spark.sql.shuffle.partitions: "16"
+  restartPolicy:
+    type: Never                        # one-off backfill: inspect a failure, fix, re-apply (reruns are idempotent)
+  timeToLiveSeconds: 86400
+  driver:
+    cores: 1
+    coreLimit: "1"
+    memory: 1g
+    memoryOverhead: 384m
+    serviceAccount: spark
+    envFrom:
+      - configMapRef: { name: cryptopipe-env }
+    labels:
+      app.kubernetes.io/part-of: crypto-pipeline
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "4040"
+      prometheus.io/path: /metrics/prometheus/
+  executor:
+    instances: 1                       # laptop kind budget; raise on the cloud cluster
+    cores: 1
+    coreLimit: "1"
+    memory: 2g
+    memoryOverhead: 384m
+    envFrom:
+      - configMapRef: { name: cryptopipe-env }
+    labels:
+      app.kubernetes.io/part-of: crypto-pipeline
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "4040"
+      prometheus.io/path: /metrics/executors/prometheus/

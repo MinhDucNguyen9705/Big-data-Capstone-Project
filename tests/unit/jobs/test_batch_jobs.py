@@ -92,7 +92,7 @@ def test_load_archive_skips_untracked_symbols_and_missing_input(lake, tmp_path, 
     assert _load("--input", str(tmp_path / "absent"), "--lake-root", str(lake)) == 1
 
 
-def test_silver_merges_stream_and_archive_bronze(spark, lake, raw_trades, fixtures_dir, fresh_bucketed):
+def test_silver_merges_stream_and_archive_bronze(spark, lake, raw_trades, fixtures_dir, fresh_bucketed, capsys):
     assert _load("--input", str(raw_trades), "--lake-root", str(lake)) == 0
     # Stream bronze: the 500 fixture trades plus the first 100 archive trades again, as the live producer would
     # have sent them (same exchange, symbol, trade_id -> must be deduplicated against the archive).
@@ -116,8 +116,11 @@ def test_silver_merges_stream_and_archive_bronze(spark, lake, raw_trades, fixtur
         "2025-10-09",
         "2025-10-10",
     ]
-    reasons = {r.reason for r in _read(spark, lake, contracts.LAKE_QUARANTINE_TRADES).collect()}
-    assert reasons == {"non_positive_price", "unknown_symbol", "future_timestamp"}
+    # The 3 invalid rows came from stream bronze: stream_ohlcv owns their quarantine (a streaming file sink), so
+    # batch_silver only counts them and writes nothing into either quarantine folder.
+    assert not (lake / contracts.LAKE_QUARANTINE_TRADES).exists()
+    assert not (lake / contracts.LAKE_QUARANTINE_ARCHIVE_TRADES).exists()
+    assert "of which stream              3" in capsys.readouterr().out
 
     table = spark.table(batch_silver.BUCKETED_TABLE)
     assert table.count() == 1492
@@ -147,6 +150,37 @@ def test_silver_dates_rebuild_only_those_dates(spark, lake, fixtures_dir, fresh_
     assert _read(spark, lake, contracts.LAKE_SILVER_TRADES).count() == 492  # both dates, nothing duplicated
     with pytest.raises(ValueError):
         _silver("--input", jsonl, "--lake-root", str(lake), "--dates", "2025-13-01")
+
+
+def test_archive_rejects_go_to_archive_quarantine(spark, lake, tmp_path, fresh_bucketed):
+    folder = tmp_path / "raw" / "trades" / "ETHUSDT"
+    folder.mkdir(parents=True)
+    rows = ["1,4000.0,1.0,4000.0,1756684800000000,True,True", "2,-1.0,1.0,-1.0,1756684801000000,False,True"]
+    (folder / "ETHUSDT-trades-2025-09-01.csv").write_text("\n".join(rows) + "\n")
+    assert _load("--input", str(folder.parent), "--lake-root", str(lake)) == 0
+    assert _silver("--kind", "trades", "--lake-root", str(lake)) == 0
+
+    bad = _read(spark, lake, contracts.LAKE_QUARANTINE_ARCHIVE_TRADES).collect()
+    assert [(r.trade_id, r.reason, r.topic) for r in bad] == [("2", "non_positive_price", "archive")]
+    assert _read(spark, lake, contracts.LAKE_SILVER_TRADES).count() == 1
+
+
+def test_silver_never_writes_into_a_streaming_sink(lake, fixtures_dir):
+    sink = lake / contracts.LAKE_QUARANTINE_ARCHIVE_TRADES / "_spark_metadata"
+    sink.mkdir(parents=True)  # as if a streaming query owned the folder
+    jsonl = str(fixtures_dir / "trades_normalized.jsonl")
+    with pytest.raises(RuntimeError, match="streaming file sink"):
+        _silver("--input", jsonl, "--lake-root", str(lake), "--no-bucketed")
+
+
+def test_recent_days_window():
+    from datetime import date
+
+    assert batch_silver.recent_days(2, today=date(2025, 3, 1)) == ["2025-02-28", "2025-03-01"]
+    args = batch_silver.build_parser().parse_args(["--recent-days", "2"])
+    assert args.recent_days == 2 and args.dates is None
+    with pytest.raises(SystemExit):  # --dates and --recent-days are exclusive
+        batch_silver.build_parser().parse_args(["--recent-days", "2", "--dates", "2025-09-01"])
 
 
 def test_silver_without_bronze_is_a_no_op(lake, capsys):

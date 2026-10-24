@@ -1,0 +1,78 @@
+# Owner: D (Batch and data), task A8. On demand only (not applied by `make deploy`).
+# Downloads Binance archive CSVs (SHA256-verified) and puts them into the lake landing zone
+# hdfs://hdfs-namenode.storage:8020/lake/raw/archive/<kind>/<SYMBOL>/ (contracts.LAKE_RAW_ARCHIVE).
+#
+#   1. init container `download` (cryptopipe-ingest image): crypto backfill download ... --dest /staging
+#   2. container `put` (apache/hadoop image, HDFS client config from ConfigMap hadoop-conf): hdfs dfs -put
+#
+# Edit SYMBOLS / KIND / START / END below (one Job per range), then:
+#   kubectl -n spark delete job archive-download --ignore-not-found
+#   kubectl apply -f deploy/spark/backfill/archive-download-job.yaml
+#   kubectl -n spark logs -f job/archive-download -c download     # then -c put
+# The staging volume must hold the whole range: about 200 MB of CSV per BTCUSDT trade day, ~7 MB per kline
+# month. Split large ranges (e.g. one Job per 5 trade days) to stay under STAGING sizeLimit and node disk.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: archive-download
+  namespace: spark
+  labels:
+    app.kubernetes.io/part-of: crypto-pipeline
+    app.kubernetes.io/component: batch-download
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: crypto-pipeline
+        app.kubernetes.io/component: batch-download
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: download
+          image: cryptopipe-ingest:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: SYMBOLS, value: "BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT,XRPUSDT,ADAUSDT,DOGEUSDT,AVAXUSDT,LINKUSDT,LTCUSDT" }
+            - { name: KIND, value: "trades" }          # trades | klines
+            - { name: START, value: "2025-09-01" }
+            - { name: END, value: "2025-09-03" }
+          args: [backfill, download, --symbols, $(SYMBOLS), --kind, $(KIND), --start, $(START), --end, $(END),
+                 --dest, /staging]
+          resources:
+            requests: { cpu: 250m, memory: 256Mi }
+            limits: { memory: 1Gi }
+          volumeMounts:
+            - { name: staging, mountPath: /staging }
+      containers:
+        - name: put
+          image: apache/hadoop:3.3.6
+          imagePullPolicy: IfNotPresent
+          command: ["bash", "-ec"]
+          args:
+            - |
+              target="hdfs://hdfs-namenode.storage:8020/lake/raw/archive/$KIND"
+              for dir in /staging/"$KIND"/*/; do
+                symbol="$(basename "$dir")"
+                hdfs dfs -mkdir -p "$target/$symbol"
+                hdfs dfs -put -f "$dir"*.csv "$target/$symbol/"
+                echo "put $(ls "$dir"*.csv | wc -l) files -> $target/$symbol"
+              done
+              hdfs dfs -du -s -h "$target"
+          env:
+            - { name: KIND, value: "trades" }          # keep equal to KIND of the init container
+            - { name: HADOOP_CONF_DIR, value: /opt/hadoop-conf }
+            - { name: HADOOP_USER_NAME, value: spark } # lake folders are owned by spark (hdfs-init-lake)
+            - { name: HADOOP_ROOT_LOGGER, value: "WARN,console" }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 768Mi }
+          volumeMounts:
+            - { name: staging, mountPath: /staging, readOnly: true }
+            - { name: hadoop-conf, mountPath: /opt/hadoop-conf }
+      volumes:
+        - name: staging
+          emptyDir: { sizeLimit: 20Gi }
+        - name: hadoop-conf
+          configMap: { name: hadoop-conf }
