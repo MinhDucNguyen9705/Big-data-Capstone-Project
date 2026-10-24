@@ -1,0 +1,47 @@
+# Owner: E. install.sh generates cassandra-schema from the existing cql/schema.cql contract.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cassandra-schema
+  namespace: storage
+  labels:
+    app.kubernetes.io/part-of: crypto-pipeline
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cassandra-schema
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: schema
+          image: cassandra:5.0.6
+          command: [bash, -ec]
+          args:
+            - |
+              for attempt in $(seq 1 60); do
+                if cqlsh cassandra.storage 9042 -e 'SELECT release_version FROM system.local;'; then
+                  exec cqlsh cassandra.storage 9042 -f /schema/schema.cql
+                fi
+                sleep 5
+              done
+              echo 'Cassandra did not become CQL-ready' >&2
+              exit 1
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: schema
+              mountPath: /schema
+              readOnly: true
+      volumes:
+        - name: schema
+          configMap:
+            name: cassandra-schema

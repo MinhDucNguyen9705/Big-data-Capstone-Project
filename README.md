@@ -52,7 +52,8 @@ Speed-layer jobs, local file-stream commands, checkpoint/recovery rules and clus
 Requirements: Python 3.11, Java 17 (21 also works locally), git, GNU make (Linux, macOS, WSL or Git Bash).
 
 ```bash
-git clone <repo-url> crypto-stream-lake && cd crypto-stream-lake
+git clone https://github.com/MinhDucNguyen9705/Big-data-Capstone-Project.git crypto-stream-lake
+cd crypto-stream-lake
 make install          # .venv + pip install -e ".[dev]"
 make test             # unit tests with a local SparkSession
 make demo             # = crypto demo local
@@ -90,11 +91,11 @@ Configuration: environment variables `CRYPTO_*` (see [.env.example](.env.example
 
 | Member | Area | Owns | First tasks |
 |---|---|---|---|
-| A | Platform | `deploy/`, `docker/`, cluster make targets | A7: kind, Strimzi Kafka, HDFS, spark-operator, images |
-| B | Ingestion | `src/cryptopipe/ingest/` (except archive, replay) | A3: Binance/Coinbase producers, pollers, DLQ, metrics |
-| C | Speed layer | `src/cryptopipe/transforms/`, `jobs/stream_*` | A5/A6: transforms, `stream_bronze`, `stream_ohlcv` |
-| D | Batch and data | `ingest/archive.py`, `ingest/replay.py`, `transforms/archive.py`, `jobs/batch_*`, `jobs/profile.py`, `docs/data.md` | A4/A6/A8: archive, batch jobs, dataset |
-| E | Serving and docs | `src/cryptopipe/serving/`, `cql/`, `deploy/cassandra/`, `deploy/monitoring/`, `docs/` | A7 (Cassandra), A9, A10: dashboards, docs |
+| A — Đức | Platform | `deploy/`, `docker/`, cluster make targets | A7: kind, Strimzi Kafka, HDFS, spark-operator, images |
+| B — Uy | Ingestion | `src/cryptopipe/ingest/` (except archive, replay) | A3: Binance/Coinbase producers, pollers, DLQ, metrics |
+| C — Khang | Speed layer | `src/cryptopipe/transforms/`, `jobs/stream_*` | A5/A6: transforms, `stream_bronze`, `stream_ohlcv` |
+| D — Kiên | Batch and data | `ingest/archive.py`, `ingest/replay.py`, `transforms/archive.py`, `jobs/batch_*`, `jobs/profile.py`, `docs/data.md` | A4/A6/A8: archive, batch jobs, dataset |
+| E — Chi | Serving and docs | `src/cryptopipe/serving/`, `cql/`, `deploy/cassandra/`, `deploy/monitoring/`, `docs/` | A7 (Cassandra), A9, A10: dashboards, docs |
 
 Contracts (`contracts.py`, `schemas/`, `conf/symbols.yaml`, `cql/schema.cql`, `docs/contracts.md`) are owned by
 everyone: changes need approval from every affected owner. Ownership is enforced by [.github/CODEOWNERS](.github/CODEOWNERS).
@@ -112,6 +113,20 @@ Then replace `@memberA`..`@memberE` in [.github/CODEOWNERS](.github/CODEOWNERS) 
 branch protection for `main` (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## Docs
+
+**Serving and docs (Chi):** [Vietnamese implementation and explanation](docs/serving-and-docs-chi.md),
+[Cassandra runbook](deploy/cassandra/README.md), [Grafana/Prometheus runbook](deploy/monitoring/README.md),
+[validation evidence](docs/serving-validation.md). On the team's existing kind cluster:
+
+```bash
+bash deploy/cassandra/install.sh
+bash deploy/monitoring/install.sh
+bash deploy/monitoring/port-forward.sh
+```
+
+The platform's existing deploy hooks also run these installers. Grafana provisions market and pipeline
+dashboards automatically; admin credentials are generated in a Kubernetes Secret. Synthetic serving data is
+opt-in and isolated in `crypto_demo`. Installing the manifests is separate from passing live cluster acceptance.
 
 * [docs/architecture.md](docs/architecture.md): Lambda diagram, data flow, deployment, components
 * [docs/contracts.md](docs/contracts.md): symbols, schemas, topics, lake layout, Cassandra, env vars

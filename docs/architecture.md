@@ -1,6 +1,10 @@
 <!-- Owner: E (Serving and docs). Copied from architecture-overview.md by the bootstrap. -->
 # Architecture
 
+This describes the intended integrated deployment. Code/manifests existing in Git do not establish cluster
+readiness. Serving installation and acceptance checks: [serving-and-docs-chi.md](serving-and-docs-chi.md);
+recorded verification: [serving-validation.md](serving-validation.md).
+
 ## 1. Problem and 3V numbers
 
 Crypto markets trade 24/7 on many exchanges. The system collects every trade and 1-minute candle from Binance
@@ -9,8 +13,8 @@ latency) and historical analytics (indicators, correlations, ML; milestones B2 t
 
 | V | Measured / planned | Source |
 |---|---|---|
-| **Velocity** | ~130 trades/s on Binance for 12 symbols, ~70/s on Coinbase (30 s sample on 2026-10-19); bursts 10x during volatility; the replayer drives 10-50x for load tests | `crypto ingest binance --dry-run` |
-| **Volume** | BTCUSDT alone: ~200 MB of CSV per day (~2.5 M trades); checkpoint dataset: 30 days x 10 symbols trades + 2 years x 50 symbols 1m klines (tens of GB of CSV, several GB of Parquet) | [data.md](data.md) |
+| **Velocity** | To measure on the integrated workload: producer rate, Spark query input/processing rates and trigger duration. Replay speed is an input setting, not a measured throughput result. | Pipeline dashboard; timestamped run evidence |
+| **Volume** | The batch owner's local report lists 5,325,712 trades for BTCUSDT over two days. The full checkpoint target remains 30 days x 10 symbols trades + 2 years x 50 symbols 1m klines; target size is not an achieved cluster measurement. | [data.md](data.md); local report not rerun by serving work |
 | **Variety** | WebSocket JSON (2 exchanges, different schemas), REST JSON (CoinGecko metadata, Fear & Greed index), zipped CSV archives with a timestamp unit change (ms -> us in 2025) | [data.md](data.md) |
 
 ## 2. Lambda overview
@@ -79,7 +83,12 @@ flowchart LR
 * **Batch layer**: `stream_bronze` lands every Kafka record unchanged in HDFS (the immutable master dataset);
   `batch_load_archive` adds years of history from the Binance archive with the same bronze columns;
   `batch_silver` rebuilds cleaned, deduplicated, typed tables hourly. Gold tables and batch views follow in B2.
-* **Serving layer**: Cassandra (query-first tables, partition = symbol x day) behind Grafana.
+* **Serving layer**: Cassandra (query-first tables, partition = symbol x day) behind Grafana. The signed
+  Cassandra datasource reads bounded date partitions; market ranges are limited to 24 hours. The current
+  candle is provisional. Latest price displays its event timestamp independently of the time picker.
+* **Monitoring**: Prometheus scrapes annotated producer pods, the driver UI's PrometheusServlet and Strimzi's
+  Kafka Exporter. Grafana's separate pipeline dashboard does not treat missing series as zero. Kafka Exporter
+  lag covers committed consumer-group offsets; Spark's checkpoint offsets need separate backlog analysis.
 
 Why Lambda and not Kappa: [ADR 0001](adr/0001-lambda-architecture.md).
 
@@ -185,9 +194,9 @@ Memory budget (requests): Kafka 1 GiB, HDFS 1.8 GiB, Cassandra 1.5 GiB, two stre
 | Message queue | Kafka (KRaft) via Strimzi | durable, replayable buffer between ingest and processing; decouples layers | replay for reprocessing, partitioning by symbol, operator-managed on K8s | Pulsar (smaller ecosystem in course), RabbitMQ (no log replay) |
 | Stream processing | Spark Structured Streaming 3.5 | speed layer: OHLCV, dedupe, watermarking | one engine and one codebase for batch and stream; course requirement | Flink (better latency, second engine to learn) |
 | Batch processing | Spark SQL / DataFrames | bronze -> silver -> gold, analytics, ML | same transforms as streaming, unit tested with local Spark | Hive on Tez, Trino (query only) |
-| Distributed storage | HDFS 3.3 | master dataset, Parquet lake | course focus on distributed FS; data locality; block replication visible | MinIO/S3 (ADR 0002, to be written by E) |
-| Serving DB | Cassandra 5.0 | low-latency reads of candles and latest prices | write-heavy time series, query-first modelling, linear scaling | MongoDB, Elasticsearch (ADR 0003, to be written by E) |
-| Orchestration | Kubernetes (kind -> managed), spark-operator | run everything declaratively, restart on failure | same manifests locally and on cloud | Docker Compose (ADR 0004, to be written by E) |
+| Distributed storage | HDFS 3.3 | master dataset, Parquet lake | course focus on distributed FS; data locality; block replication visible | MinIO/S3 ([ADR 0003](adr/0003-hdfs-instead-of-minio.md)) |
+| Serving DB | Cassandra 5.0.6 | low-latency reads of candles and latest prices | write-heavy time series, query-first modelling | MongoDB, Elasticsearch ([ADR 0004](adr/0004-cassandra-serving.md)) |
+| Orchestration | Kubernetes (kind -> managed), spark-operator | run everything declaratively, restart on failure | same manifests locally and on cloud | Docker Compose ([ADR 0002](adr/0002-kubernetes-instead-of-docker-compose.md)) |
 | Monitoring | kube-prometheus-stack | metrics for producers, Kafka, Spark | standard, PodMonitor CRDs, Grafana included | ELK only (logs, weak metrics) |
 | Visualization | Grafana + Cassandra datasource | live candles, pipeline health | no extra service; dashboards as code | Superset (needs SQL engine), Streamlit (planned for analytics) |
 
@@ -220,5 +229,5 @@ Cassandra (`crypto`): `ohlcv_1m`, `latest_price`, `alerts`, `daily_stats` ([cql/
 | MLlib, KMeans, GraphFrames, statistics, Streamlit | B4 | GraphFrames jar is already in the Spark image |
 | Avro + Schema Registry | B1 | JSON with `schema_version` until then |
 | Airflow or justified ScheduledSparkApplication, alerting, Loki | B5 | |
-| Security: Kafka TLS + SCRAM, NetworkPolicies, Cassandra auth, HDFS permissions | B5 | the checkpoint runs with PLAINTEXT and permissions off |
+| Security: Kafka TLS + SCRAM, NetworkPolicies, Cassandra auth, HDFS permissions review | B5 | Kafka checkpoint uses PLAINTEXT; local Cassandra has no auth/TLS; verify HDFS settings separately |
 | Managed cloud cluster, 3x replication, load and failure tests | B6 | |

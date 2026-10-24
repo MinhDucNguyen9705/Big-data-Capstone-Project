@@ -1,0 +1,450 @@
+{
+  "id": null,
+  "uid": "crypto-market",
+  "title": "Crypto · Market",
+  "tags": [
+    "cryptopipe",
+    "checkpoint-1"
+  ],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "refresh": "30s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "6h",
+      "12h",
+      "24h"
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "symbol",
+        "label": "Symbol",
+        "type": "custom",
+        "query": "BTC-USDT,ETH-USDT,BNB-USDT,SOL-USDT,XRP-USDT,ADA-USDT,DOGE-USDT,AVAX-USDT,LINK-USDT,LTC-USDT",
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "text": "BTC-USDT",
+          "value": "BTC-USDT"
+        },
+        "options": [
+          {
+            "text": "BTC-USDT",
+            "value": "BTC-USDT",
+            "selected": true
+          },
+          {
+            "text": "ETH-USDT",
+            "value": "ETH-USDT",
+            "selected": false
+          },
+          {
+            "text": "BNB-USDT",
+            "value": "BNB-USDT",
+            "selected": false
+          },
+          {
+            "text": "SOL-USDT",
+            "value": "SOL-USDT",
+            "selected": false
+          },
+          {
+            "text": "XRP-USDT",
+            "value": "XRP-USDT",
+            "selected": false
+          },
+          {
+            "text": "ADA-USDT",
+            "value": "ADA-USDT",
+            "selected": false
+          },
+          {
+            "text": "DOGE-USDT",
+            "value": "DOGE-USDT",
+            "selected": false
+          },
+          {
+            "text": "AVAX-USDT",
+            "value": "AVAX-USDT",
+            "selected": false
+          },
+          {
+            "text": "LINK-USDT",
+            "value": "LINK-USDT",
+            "selected": false
+          },
+          {
+            "text": "LTC-USDT",
+            "value": "LTC-USDT",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "name": "exchange",
+        "label": "Exchange",
+        "type": "custom",
+        "query": "binance,coinbase",
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "text": "binance",
+          "value": "binance"
+        },
+        "options": [
+          {
+            "text": "binance",
+            "value": "binance",
+            "selected": true
+          },
+          {
+            "text": "coinbase",
+            "value": "coinbase",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "name": "dataset",
+        "label": "Dataset (crypto = LIVE; crypto_demo = SYNTHETIC)",
+        "type": "custom",
+        "query": "crypto,crypto_demo",
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "text": "crypto",
+          "value": "crypto"
+        },
+        "options": [
+          {
+            "text": "crypto",
+            "value": "crypto",
+            "selected": true
+          },
+          {
+            "text": "crypto_demo",
+            "value": "crypto_demo",
+            "selected": false
+          }
+        ]
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "How to read this dashboard",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**UTC · supported range: at most 24 hours · selected dataset: ${dataset}.** crypto is the live pipeline; crypto_demo contains synthetic demonstration data only. Queries read the start/end UTC day partitions, including midnight crossings. Longer ranges are not supported here; use the batch lake for history. The current minute is provisional. Latest price ignores the time picker; check its event timestamp for freshness. Coinbase USD is mapped to the canonical USDT symbol by the project contract; prices are not FX-converted. Empty results remain No data."
+      },
+      "targets": []
+    },
+    {
+      "id": 2,
+      "title": "${symbol} · ${exchange} · 1-minute candles",
+      "type": "candlestick",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 16,
+        "h": 11
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "currencyUSD",
+          "decimals": 4
+        },
+        "overrides": []
+      },
+      "options": {
+        "mode": "candles",
+        "candleStyle": "candles",
+        "colorStrategy": "open-close",
+        "fields": {
+          "open": "open",
+          "high": "high",
+          "low": "low",
+          "close": "close",
+          "volume": "volume"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "cassandra"
+          },
+          "queryType": "query",
+          "rawQuery": true,
+          "target": "SELECT exchange, window_start, open, high, low, close, volume FROM ${dataset}.ohlcv_1m WHERE symbol = '${symbol}' AND day IN (toDate((timestamp) $__timeFrom), toDate((timestamp) $__timeTo)) AND window_start >= $__timeFrom AND window_start <= $__timeTo AND exchange = '${exchange}' LIMIT 2880 ALLOW FILTERING"
+        }
+      ],
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "cassandra"
+      },
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "window_start",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Latest trade · check event_ts",
+      "type": "table",
+      "gridPos": {
+        "x": 16,
+        "y": 4,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "cassandra"
+          },
+          "queryType": "query",
+          "rawQuery": true,
+          "target": "SELECT exchange, symbol, price, qty, event_ts FROM ${dataset}.latest_price WHERE symbol = '${symbol}' AND exchange = '${exchange}'"
+        }
+      ],
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "cassandra"
+      }
+    },
+    {
+      "id": 4,
+      "title": "Trades per minute",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 16,
+        "y": 9,
+        "w": 8,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "cassandra"
+          },
+          "queryType": "query",
+          "rawQuery": true,
+          "target": "SELECT exchange, window_start, trades FROM ${dataset}.ohlcv_1m WHERE symbol = '${symbol}' AND day IN (toDate((timestamp) $__timeFrom), toDate((timestamp) $__timeTo)) AND window_start >= $__timeFrom AND window_start <= $__timeTo AND exchange = '${exchange}' LIMIT 2880 ALLOW FILTERING"
+        }
+      ],
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "cassandra"
+      },
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "window_start",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Traded volume per minute",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "cassandra"
+          },
+          "queryType": "query",
+          "rawQuery": true,
+          "target": "SELECT exchange, window_start, volume FROM ${dataset}.ohlcv_1m WHERE symbol = '${symbol}' AND day IN (toDate((timestamp) $__timeFrom), toDate((timestamp) $__timeTo)) AND window_start >= $__timeFrom AND window_start <= $__timeTo AND exchange = '${exchange}' LIMIT 2880 ALLOW FILTERING"
+        }
+      ],
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "cassandra"
+      },
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "window_start",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Volume-weighted average price",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 15,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "currencyUSD",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "cassandra"
+          },
+          "queryType": "query",
+          "rawQuery": true,
+          "target": "SELECT exchange, window_start, vwap FROM ${dataset}.ohlcv_1m WHERE symbol = '${symbol}' AND day IN (toDate((timestamp) $__timeFrom), toDate((timestamp) $__timeTo)) AND window_start >= $__timeFrom AND window_start <= $__timeTo AND exchange = '${exchange}' LIMIT 2880 ALLOW FILTERING"
+        }
+      ],
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "cassandra"
+      },
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "window_start",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

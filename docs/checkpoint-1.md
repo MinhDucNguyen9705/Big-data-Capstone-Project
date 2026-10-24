@@ -60,6 +60,11 @@ Kubernetes deployment, dashboards, History Server or long-running workload are r
 - [ ] A10 architecture doc final, ADRs 0002 to 0005, demo script below
 - [ ] A11 3 to 5 real journal entries across categories
 
+E's implementation now includes Cassandra manifests/install/check, the pinned monitoring chart configuration,
+market/pipeline dashboards, synthetic-data isolation, HTTP query checks, ADRs 0004/0005 and a Vietnamese
+runbook. These checkboxes remain cluster acceptance checks; source files alone do not satisfy them.
+See [serving-and-docs-chi.md](serving-and-docs-chi.md) and [serving-validation.md](serving-validation.md).
+
 ## Demo script
 
 | Step | Command | What to show | Expected |
@@ -70,4 +75,17 @@ Kubernetes deployment, dashboards, History Server or long-running workload are r
 | 4 | `hdfs dfs -ls /lake/silver/trades` | date partitions | 30+ days |
 | 5 | `crypto demo local` | the same transforms, no cluster | 60 candles from the fixtures |
 
-(To be completed by E with real outputs and screenshots.)
+For step 3, select Dataset **crypto** (LIVE), BTC-USDT/Binance, Last 30 minutes. Check `latest_price.event_ts`
+and watch new candles arrive. Show `/d/crypto-market` and `/d/crypto-pipeline`; explain missing metrics
+instead of reporting them as zero. Kafka committed-group lag is not the Spark checkpoint backlog.
+
+Additional serving gates, after installing the components and exporting `GRAFANA_PASSWORD` as documented:
+
+```bash
+REQUIRE_LIVE=1 bash deploy/cassandra/check.sh
+.venv/bin/python -m cryptopipe.serving.check --require-live
+```
+
+Take screenshots with timestamps into `docs/img/` only after running the real cluster. Synthetic `crypto_demo`
+is available for an independent UI rehearsal and cannot satisfy the live gate. Record real outputs and
+screenshots in a dated evidence entry; do not mark acceptance from a static render or fixture test.

@@ -1,0 +1,33 @@
+Verification excerpts, 2026-10-24 (Vietnam date)
+No Kubernetes or Grafana UI acceptance is claimed.
+
+make lint test
+All checks passed!
+140 files already formatted
+====================== 171 passed, 3 deselected in 37.82s ======================
+
+Helm / kubeconform / shell validation
+Grafana dashboards and ConfigMap match the generator
+==> Linting /private/tmp/chi-serving-tools/kube-prometheus-stack
+
+1 chart(s) linted, 0 chart(s) failed
+Summary: 80 resources found in 5 files - Valid: 80, Invalid: 0, Errors: 0, Skipped: 0
+ok  Serving manifests, shell syntax and generated dashboards validated
+
+Cassandra 5.0.6 integration
+.                                                                        [100%]
+1 passed in 1.05s
+
+Walking skeleton in an isolated lake
+  rows in                500
+  invalid (quarantine)     3
+  duplicates removed       5
+  candles out             60
+
+Real local Spark metrics endpoint
+metrics_serving_check_driver_spark_streaming_serving_metrics_probe_inputRate_total_Value{type="gauges"} 3.430531732418525
+metrics_serving_check_driver_spark_streaming_serving_metrics_probe_processingRate_total_Value{type="gauges"} 12.422360248447205
+metrics_serving_check_driver_spark_streaming_serving_metrics_probe_latency_Value{type="gauges"} 161
+metrics_serving_check_driver_spark_streaming_serving_metrics_probe_states_rowsTotal_Value{type="gauges"} 0
+metrics_serving_check_driver_spark_streaming_serving_metrics_probe_states_usedBytes_Value{type="gauges"} 0
+PASS: all five dashboard Spark metric families served by a real local Spark query

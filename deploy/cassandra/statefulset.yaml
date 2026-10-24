@@ -1,0 +1,91 @@
+# Owner: E (Serving and docs), A7. One-node checkpoint deployment; not a cloud HA topology.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cassandra
+  namespace: storage
+  labels:
+    app.kubernetes.io/name: cassandra
+    app.kubernetes.io/part-of: crypto-pipeline
+spec:
+  serviceName: cassandra-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cassandra
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cassandra
+        app.kubernetes.io/part-of: crypto-pipeline
+    spec:
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: cassandra
+          image: cassandra:5.0.6
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          env:
+            - name: CASSANDRA_CLUSTER_NAME
+              value: crypto
+            - name: CASSANDRA_DC
+              value: datacenter1
+            - name: CASSANDRA_RACK
+              value: rack1
+            - name: CASSANDRA_ENDPOINT_SNITCH
+              value: GossipingPropertyFileSnitch
+            - name: CASSANDRA_SEEDS
+              value: cassandra-0.cassandra-headless.storage.svc.cluster.local
+            - name: MAX_HEAP_SIZE
+              value: 1G
+            - name: HEAP_NEWSIZE
+              value: 256M
+          ports:
+            - name: cql
+              containerPort: 9042
+            - name: internode
+              containerPort: 7000
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1536Mi
+            limits:
+              cpu: "2"
+              memory: 2560Mi
+          startupProbe:
+            exec:
+              command: [cqlsh, 127.0.0.1, "9042", -e, "SELECT release_version FROM system.local;"]
+            periodSeconds: 10
+            timeoutSeconds: 8
+            failureThreshold: 90
+          readinessProbe:
+            exec:
+              command: [cqlsh, 127.0.0.1, "9042", -e, "SELECT release_version FROM system.local;"]
+            periodSeconds: 30
+            timeoutSeconds: 8
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: cql
+            periodSeconds: 20
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/cassandra
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 10Gi

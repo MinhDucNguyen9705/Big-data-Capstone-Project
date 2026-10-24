@@ -1,0 +1,176 @@
+# Owner: E, A9. Pinned chart: kube-prometheus-stack 69.8.2 (Grafana 11.x / Prometheus 3.2.1).
+# Local checkpoint sizing. Keep credentials in the existing Secret, not in this file.
+fullnameOverride: crypto-monitoring
+commonLabels:
+  cryptopipe.io/monitoring: "true"
+alertmanager:
+  enabled: false
+defaultRules:
+  create: false
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+grafana:
+  enabled: true
+  admin:
+    existingSecret: cryptopipe-grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  service:
+    type: NodePort
+    port: 80
+    nodePort: 30300
+  plugins:
+    - https://grafana.com/api/plugins/hadesarchitect-cassandra-datasource/versions/3.3.0/download;hadesarchitect-cassandra-datasource
+  grafana.ini:
+    auth.anonymous:
+      enabled: false
+    users:
+      allow_sign_up: false
+    dashboards:
+      default_home_dashboard_path: /tmp/dashboards/market.json
+  persistence:
+    enabled: true
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: monitoring
+      provider:
+        allowUiUpdates: false
+    datasources:
+      enabled: true
+      defaultDatasourceEnabled: true
+      uid: prometheus
+  additionalDataSources:
+    - name: Cassandra
+      uid: cassandra
+      type: hadesarchitect-cassandra-datasource
+      access: proxy
+      url: cassandra.storage:9042
+      editable: false
+      jsonData:
+        keyspace: crypto
+        consistency: ONE
+        timeout: 10
+prometheus:
+  prometheusSpec:
+    retention: 2d
+    retentionSize: 1500MB
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    resources:
+      requests:
+        cpu: 200m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 2Gi
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector:
+      matchLabels:
+        cryptopipe.io/monitoring: "true"
+    podMonitorSelector:
+      matchLabels:
+        app.kubernetes.io/part-of: crypto-pipeline
+    serviceMonitorNamespaceSelector: {}
+    podMonitorNamespaceSelector: {}
+    # Spark Operator's pod specs do not declare metrics ports. PodMonitor requires
+    # a named container port; discovery below deliberately uses the driver pod IP:4040.
+    additionalScrapeConfigs:
+      - job_name: cryptopipe-ingest
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [ingest]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_phase]
+            action: keep
+            regex: Running
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: '$1:8000'
+          - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: '(.+);([0-9]+)'
+            replacement: '$1:$2'
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            regex: '(.+)'
+            target_label: __metrics_path__
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+      - job_name: cryptopipe-spark
+        metrics_path: /metrics/prometheus
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [spark]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_spark_role]
+            action: keep
+            regex: driver
+          - source_labels: [__meta_kubernetes_pod_phase]
+            action: keep
+            regex: Running
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            action: keep
+            regex: '4040'
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_label_sparkoperator_k8s_io_app_name]
+            target_label: spark_app
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 300m
+      memory: 192Mi
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 64Mi
