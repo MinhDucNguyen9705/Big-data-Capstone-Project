@@ -1,0 +1,34 @@
+# Owner: E (Serving and docs), A7. Names match docs/contracts.md.
+apiVersion: v1
+kind: Service
+metadata:
+  name: cassandra
+  namespace: storage
+  labels:
+    app.kubernetes.io/name: cassandra
+    app.kubernetes.io/part-of: crypto-pipeline
+spec:
+  selector:
+    app.kubernetes.io/name: cassandra
+  ports:
+    - name: cql
+      port: 9042
+      targetPort: cql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cassandra-headless
+  namespace: storage
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: cassandra
+  ports:
+    - name: internode
+      port: 7000
+      targetPort: internode
+    - name: cql
+      port: 9042
+      targetPort: cql

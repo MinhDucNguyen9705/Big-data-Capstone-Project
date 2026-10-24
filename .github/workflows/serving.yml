@@ -1,0 +1,29 @@
+name: serving
+on:
+  push:
+  pull_request:
+jobs:
+  deployment-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.17.3
+      - name: Install validation tools
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -e '.[dev]'
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar -xz -C /tmp kubeconform
+          curl -fsSL https://github.com/prometheus/prometheus/releases/download/v3.2.1/prometheus-3.2.1.linux-amd64.tar.gz | tar -xz -C /tmp
+          echo /tmp >> "$GITHUB_PATH"
+          echo /tmp/prometheus-3.2.1.linux-amd64 >> "$GITHUB_PATH"
+      - name: Validate deployment and dashboard expressions
+        run: |
+          bash deploy/monitoring/validate.sh
+          .venv/bin/python -m pytest tests/unit/serving/test_deployment.py -q

@@ -1,0 +1,18 @@
+# Strimzi creates a Kafka Exporter container with a named tcp-prometheus port (9404).
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: cryptopipe-kafka-exporter
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: crypto-pipeline
+spec:
+  namespaceSelector:
+    matchNames: [kafka]
+  selector:
+    matchLabels:
+      strimzi.io/name: crypto-kafka-exporter
+  podMetricsEndpoints:
+    - port: tcp-prometheus
+      path: /metrics
+      interval: 30s

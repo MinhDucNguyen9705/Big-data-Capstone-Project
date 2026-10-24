@@ -1,0 +1,642 @@
+{
+  "id": null,
+  "uid": "crypto-pipeline",
+  "title": "Crypto · Pipeline",
+  "tags": [
+    "cryptopipe",
+    "checkpoint-1"
+  ],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "refresh": "30s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "6h",
+      "12h",
+      "24h"
+    ]
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "How to read this dashboard",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**No data is not zero.** Empty panels mean missing discovery, scrape failures, or a metric not yet emitted. Producer sent counters measure enqueue attempts, not broker acknowledgements; inspect delivery errors too. Kafka Exporter lag only covers groups with committed offsets; Spark Structured Streaming stores its offsets in checkpoints and does not commit them to Kafka. Spark input/processing rates are per query, so downstream handoff rows are not new source trades. Batch duration is trigger execution time, not end-to-end latency."
+      },
+      "targets": []
+    },
+    {
+      "id": 2,
+      "title": "Producer enqueue rate",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "ops",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (topic) (rate(crypto_ingest_messages_sent_total[$__rate_interval]))",
+          "range": true,
+          "legendFormat": "{{query}}{{source}}{{topic}}{{consumergroup}} {{pod}}"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 3,
+      "title": "DLQ records / second",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "ops",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (source) (rate(crypto_ingest_dlq_total[$__rate_interval]))",
+          "range": true,
+          "legendFormat": "{{query}}{{source}}{{topic}}{{consumergroup}} {{pod}}"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 4,
+      "title": "Kafka delivery errors / second",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "ops",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (topic) (rate(crypto_ingest_delivery_errors_total[$__rate_interval]))",
+          "range": true,
+          "legendFormat": "{{query}}{{source}}{{topic}}{{consumergroup}} {{pod}}"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 5,
+      "title": "Producer event lag",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (source) (crypto_ingest_event_lag_seconds)",
+          "range": true,
+          "legendFormat": "{{query}}{{source}}{{topic}}{{consumergroup}} {{pod}}"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 6,
+      "title": "Kafka committed consumer-group lag",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (consumergroup, topic) (kafka_consumergroup_lag)",
+          "range": true,
+          "legendFormat": "{{query}}{{source}}{{topic}}{{consumergroup}} {{pod}}"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 7,
+      "title": "WebSocket reconnects / second",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "ops",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (source) (rate(crypto_ingest_reconnects_total[$__rate_interval]))",
+          "range": true,
+          "legendFormat": "{{query}}{{source}}{{topic}}{{consumergroup}} {{pod}}"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 8,
+      "title": "Spark query input rate",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "ops",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "label_replace({job=\"cryptopipe-spark\",__name__=~\"metrics_.*_spark_streaming_(.*)_inputRate_total_Value\"}, \"query\", \"$1\", \"__name__\", \"metrics_.*_spark_streaming_(.*)_inputRate_total_Value\")",
+          "range": true,
+          "legendFormat": "{{query}}{{source}}{{topic}}{{consumergroup}} {{pod}}"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 9,
+      "title": "Spark query processing rate",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 29,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "ops",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "label_replace({job=\"cryptopipe-spark\",__name__=~\"metrics_.*_spark_streaming_(.*)_processingRate_total_Value\"}, \"query\", \"$1\", \"__name__\", \"metrics_.*_spark_streaming_(.*)_processingRate_total_Value\")",
+          "range": true,
+          "legendFormat": "{{query}}{{source}}{{topic}}{{consumergroup}} {{pod}}"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 10,
+      "title": "Spark trigger execution duration",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(label_replace({job=\"cryptopipe-spark\",__name__=~\"metrics_.*_spark_streaming_(.*)_latency_Value\"}, \"query\", \"$1\", \"__name__\", \"metrics_.*_spark_streaming_(.*)_latency_Value\")) / 1000",
+          "range": true,
+          "legendFormat": "{{query}}{{source}}{{topic}}{{consumergroup}} {{pod}}"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 11,
+      "title": "Spark state rows",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 37,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "label_replace({job=\"cryptopipe-spark\",__name__=~\"metrics_.*_spark_streaming_(.*)_states_rowsTotal_Value\"}, \"query\", \"$1\", \"__name__\", \"metrics_.*_spark_streaming_(.*)_states_rowsTotal_Value\")",
+          "range": true,
+          "legendFormat": "{{query}}{{source}}{{topic}}{{consumergroup}} {{pod}}"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 12,
+      "title": "Spark state memory",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "label_replace({job=\"cryptopipe-spark\",__name__=~\"metrics_.*_spark_streaming_(.*)_states_usedBytes_Value\"}, \"query\", \"$1\", \"__name__\", \"metrics_.*_spark_streaming_(.*)_states_usedBytes_Value\")",
+          "range": true,
+          "legendFormat": "{{query}}{{source}}{{topic}}{{consumergroup}} {{pod}}"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 13,
+      "title": "Scrape health (0 down / 1 up)",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 45,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [],
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "up{namespace=~\"ingest|spark|kafka\"}",
+          "range": true,
+          "legendFormat": "{{query}}{{source}}{{topic}}{{consumergroup}} {{pod}}"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    }
+  ]
+}
