@@ -49,25 +49,34 @@ fixtures-check:  ## Verify committed fixtures match the seed
 	$(PY) tests/fixtures/make_fixtures.py --check
 
 # ---- owner A (Platform): scripts in deploy/scripts, see deploy/README.md --------------------------------------
+# Works from PowerShell/cmd too: Windows make runs recipes with cmd.exe, so the scripts are started with Git Bash
+# explicitly (plain `bash` there may be WSL's) and PROFILE / WITH_JOBS reach them as exported variables.
 PROFILE ?= local
+WITH_JOBS ?= 0
+export PROFILE WITH_JOBS
+ifeq ($(OS),Windows_NT)
+  DEPLOY_BASH ?= "C:/Program Files/Git/bin/bash.exe"
+else
+  DEPLOY_BASH ?= bash
+endif
 
 build-images:  ## [owner A] Build cryptopipe-spark and cryptopipe-ingest images, load into kind
-	bash deploy/scripts/build-images.sh
+	$(DEPLOY_BASH) deploy/scripts/build-images.sh
 
 cluster-up:  ## [owner A] Create the kind cluster, namespaces, shared ConfigMap, operators (PROFILE=local|lite)
-	PROFILE=$(PROFILE) bash deploy/scripts/cluster-up.sh
+	$(DEPLOY_BASH) deploy/scripts/cluster-up.sh
 
 cluster-down:  ## [owner A] Delete the local kind cluster (asks first; YES=1 to skip)
-	bash deploy/scripts/cluster-down.sh $(if $(YES),--yes)
+	$(DEPLOY_BASH) deploy/scripts/cluster-down.sh $(if $(YES),--yes)
 
 deploy:  ## [owner A] Kafka, HDFS, Spark, History Server + others' install scripts if present (WITH_JOBS=1)
-	PROFILE=$(PROFILE) WITH_JOBS=$(WITH_JOBS) bash deploy/scripts/deploy-all.sh
+	$(DEPLOY_BASH) deploy/scripts/deploy-all.sh
 
 smoke:  ## [owner A] Smoke test: pods ready, topic counts, HDFS usage, Spark job, Cassandra rows
-	PROFILE=$(PROFILE) bash deploy/scripts/smoke-test.sh
+	$(DEPLOY_BASH) deploy/scripts/smoke-test.sh
 
 port-forward:  ## [owner A] Port-forward NameNode UI, Spark UI, History Server, Grafana
-	bash deploy/scripts/port-forward.sh
+	$(DEPLOY_BASH) deploy/scripts/port-forward.sh
 
 # ---- owner D (Batch and data), task A8 -----------------------------------------------------------------------
 # Checkpoint dataset: 30 days of trades and 2 years of 1m klines for the tracked symbols (override on the command

@@ -23,4 +23,4 @@ include Kafka/HDFS/Cassandra/monitoring when budgeting kind memory. Resource tun
 Connector jars come from `docker/spark/Dockerfile`, never runtime downloads in job code.
 The JSON batch progress log includes query, batch id, input rows, watermark, rows dropped by watermark,
 state rows and duration. Spark metrics are available through the driver's Prometheus servlet; platform A/E
-must configure scraping. See [speed-layer.md](../../docs/speed-layer.md) for local tests and recovery rules.
+must configure scraping. Local file-stream runs: [docs/getting-started.md](../../docs/getting-started.md), step A7.

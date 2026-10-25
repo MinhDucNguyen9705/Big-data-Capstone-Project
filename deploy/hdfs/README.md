@@ -1,7 +1,7 @@
 # deploy/hdfs/
 
 HDFS 3.3.6 (`apache/hadoop:3.3.6`, runs as uid 1000 `hadoop`, the HDFS superuser) for the data lake.
-Owner: **A (Platform)**. Why HDFS: [ADR 0003](../../docs/adr/0003-hdfs-instead-of-minio.md).
+Owner: **A (Platform)**. Why HDFS: [docs/architecture.md](../../docs/architecture.md) section 5.
 
 ```bash
 kubectl apply -k deploy/hdfs/overlays/local      # done by make deploy (which also reruns the init-lake Job)
@@ -19,7 +19,7 @@ python deploy/hdfs/gen_lake_dirs.py               # regenerate base/lake-dirs.ge
 | `base/init-lake-job.yaml` | Job `hdfs-init-lake`: lake folders from `contracts.LAKE_PATHS`, `/spark-events`, `/user/spark`; owner `spark`, mode 775 |
 | `overlays/{local,lite,cloud}` | DataNode count and `dfs.replication` per profile (`cloud` is a stub for Q2) |
 
-**Rules that keep it working across restarts** (see `docs/journal/fault-tolerance.md`):
+**Rules that keep it working across restarts:**
 
 1. Every client uses exactly `hdfs://hdfs-namenode.storage:8020` (the contract value). A different authority, such
    as `...storage.svc`, is a different file system to Hadoop ("Wrong FS").

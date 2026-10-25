@@ -49,4 +49,4 @@ kubectl --context kind-crypto -n storage exec -i cassandra-0 -- cqlsh < /tmp/cry
 Choose **crypto_demo = SYNTHETIC** in the Grafana Dataset selector. This verifies rendering and queries;
 it does not establish that ingestion/streaming are working. The live verification command rejects this dataset.
 
-Serving guide: [../../docs/serving-and-docs-chi.md](../../docs/serving-and-docs-chi.md).
+Full walkthrough: [../../docs/getting-started.md](../../docs/getting-started.md).

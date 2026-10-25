@@ -5,7 +5,7 @@ The channel is public (no JWT). The first message after subscribing is a `snapsh
 re-sends trades after every reconnect; dedupe downstream absorbs it. Raw sample: tests/fixtures/coinbase_ws_trade.jsonl.
 
 Coinbase's `side` is the MAKER side (a `BUY` prints at the best bid), so it is inverted to get the taker side
-(docs/journal/ingestion.md, 2026-10-23).
+(found 2026-10-23).
 """
 
 from __future__ import annotations

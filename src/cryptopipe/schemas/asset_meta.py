@@ -1,4 +1,4 @@
-"""`AssetMeta`: value of compacted topic `ref.asset_meta` (CONTRACT, see docs/contracts.md)."""
+"""`AssetMeta`: value of compacted topic `ref.asset_meta` (CONTRACT, see cryptopipe.contracts)."""
 
 from __future__ import annotations
 

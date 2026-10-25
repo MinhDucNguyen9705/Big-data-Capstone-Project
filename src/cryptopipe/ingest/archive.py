@@ -2,7 +2,7 @@
 """Downloader for the Binance public archive (data.binance.vision): daily trades, monthly 1m klines.
 
 Idempotent and resumable: files already present and verified are skipped. Every zip is checked against its
-`.CHECKSUM` (SHA256) file. Since 2025-01-01 spot archive timestamps are microseconds (see docs/contracts.md).
+`.CHECKSUM` (SHA256) file. Since 2025-01-01 spot archive timestamps are microseconds.
 Sample of the unzipped CSV format: tests/fixtures/archive_trades_sample.csv.
 
 Layout under `dest`: `<kind>/<SYMBOL>/<SYMBOL>-trades-2025-09-01.csv`, `klines/<SYMBOL>/<SYMBOL>-1m-2025-09.csv`.

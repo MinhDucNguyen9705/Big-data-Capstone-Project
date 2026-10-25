@@ -3,7 +3,7 @@
 # `serving`. Pods use it with:
 #   envFrom:
 #     - configMapRef: { name: cryptopipe-env }
-# Names and values follow docs/contracts.md section 6; change them only through a contract PR.
+# Names and values follow cryptopipe.config.Settings (see .env.example); change them only through a contract PR.
 # CRYPTO_SYMBOLS_FILE is set inside each image (the path differs per image), so it is not here.
 apiVersion: v1
 kind: ConfigMap

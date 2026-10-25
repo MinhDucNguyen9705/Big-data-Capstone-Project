@@ -34,7 +34,7 @@ def test_demo_local_matches_expected_candles(spark, fixtures_dir, tmp_path):
 
     written = spark.read.parquet(result.paths["ohlcv_1m"])
     assert written.count() == 60
-    # partition discovery reads `date` back as DateType (see docs/contracts.md, lake layout)
+    # partition discovery reads `date` back as DateType
     assert sorted(str(r.date) for r in written.select("date").distinct().collect()) == ["2025-10-09", "2025-10-10"]
     reasons = {r.reason for r in spark.read.parquet(result.paths["quarantine"]).collect()}
     assert reasons == {"non_positive_price", "unknown_symbol", "future_timestamp"}

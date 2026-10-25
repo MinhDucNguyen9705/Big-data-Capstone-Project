@@ -18,7 +18,7 @@ spec:
       # Laptop clients: kind maps NodePort 30092 -> 127.0.0.1:9092 and 30093 -> 127.0.0.1:9093.
       # The broker must advertise a laptop address, otherwise the client gets the pod DNS name back from the
       # metadata request and cannot connect. 127.0.0.1, not `localhost`: on Windows `localhost` resolves to ::1
-      # first and Docker Desktop's IPv6 forwarding hangs (see docs/journal/integration.md).
+      # first and Docker Desktop's IPv6 forwarding hangs.
       - name: external
         port: 9094
         type: nodeport

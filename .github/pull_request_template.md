@@ -1,8 +1,6 @@
-## Task
-
-Task id: A? / B?.?  Closes #
-
 ## What changed
+
+Closes #
 
 -
 
@@ -15,9 +13,4 @@ Task id: A? / B?.?  Closes #
 ## Contracts
 
 - [ ] No contract change
-- [ ] Contract change: `docs/contracts.md` updated, all affected owners requested as reviewers
-
-## Journal entry added
-
-- [ ] Yes: `docs/journal/<category>.md`
-- [ ] No (nothing instructive broke, no numbers to record)
+- [ ] Contract change: code, tests and `docs/architecture.md` section 6 updated; all affected owners requested as reviewers

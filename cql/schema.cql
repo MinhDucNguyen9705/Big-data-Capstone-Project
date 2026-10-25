@@ -1,4 +1,4 @@
--- Serving layer schema (CONTRACT, see docs/contracts.md). Owner: E. Applied by the cassandra-schema Job.
+-- Serving layer schema (CONTRACT, see src/cryptopipe/contracts.py). Owner: E. Applied by the cassandra-schema Job.
 -- Table names match cryptopipe.contracts.CASSANDRA_*. Local: SimpleStrategy RF=1; cloud: NetworkTopologyStrategy RF=3.
 
 CREATE KEYSPACE IF NOT EXISTS crypto

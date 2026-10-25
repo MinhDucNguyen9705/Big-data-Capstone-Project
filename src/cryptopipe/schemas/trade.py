@@ -1,4 +1,4 @@
-"""`Trade`: value of topic `raw.trades` (CONTRACT, see docs/contracts.md)."""
+"""`Trade`: value of topic `raw.trades` (CONTRACT, see cryptopipe.contracts)."""
 
 from __future__ import annotations
 

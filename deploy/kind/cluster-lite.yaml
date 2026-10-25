@@ -5,7 +5,7 @@ apiVersion: kind.x-k8s.io/v1alpha4
 name: crypto
 # Single control plane: kube-controller-manager and kube-scheduler need no leader election. With it on, a slow
 # etcd (image pulls and builds saturating the laptop disk) made both miss lease renewals and crash-loop
-# ("leaderelection lost"), which stalled Jobs and scheduling (docs/journal/integration.md).
+# ("leaderelection lost"), which stalled Jobs and scheduling.
 kubeadmConfigPatches:
   - |
     kind: ClusterConfiguration

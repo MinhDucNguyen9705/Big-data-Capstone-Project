@@ -1,9 +1,8 @@
-<!-- Owner: E (Serving and docs). Copied from architecture-overview.md by the bootstrap. -->
+<!-- Owner: E (Serving and docs). -->
 # Architecture
 
 This describes the intended integrated deployment. Code/manifests existing in Git do not establish cluster
-readiness. Serving installation and acceptance checks: [serving-and-docs-chi.md](serving-and-docs-chi.md);
-recorded verification: [serving-validation.md](serving-validation.md).
+readiness. How to run it: [getting-started.md](getting-started.md). Platform details: [deployment.md](deployment.md).
 
 ## 1. Problem and 3V numbers
 
@@ -79,7 +78,7 @@ flowchart LR
   internal Parquet handoff. Independent consumers update 1-minute Cassandra candles (30-second watermark),
   update latest prices with event-time write timestamps, and append finalized candles to HDFS gold. Default
   triggers are 10 seconds; latency includes multiple queries and must be measured. Finalization requires
-  incoming event time to advance. See [speed-layer.md](speed-layer.md) and [ADR 0006](adr/0006-speed-layer-event-time.md).
+  incoming event time to advance.
 * **Batch layer**: `stream_bronze` lands every Kafka record unchanged in HDFS (the immutable master dataset);
   `batch_load_archive` adds years of history from the Binance archive with the same bronze columns;
   `batch_silver` rebuilds cleaned, deduplicated, typed tables hourly. Gold tables and batch views follow in B2.
@@ -90,7 +89,8 @@ flowchart LR
   Kafka Exporter. Grafana's separate pipeline dashboard does not treat missing series as zero. Kafka Exporter
   lag covers committed consumer-group offsets; Spark's checkpoint offsets need separate backlog analysis.
 
-Why Lambda and not Kappa: [ADR 0001](adr/0001-lambda-architecture.md).
+Why Lambda and not Kappa: the batch layer can rebuild every view from the immutable bronze data and years of
+archive history, which a single replayed stream cannot do cheaply.
 
 ## 3. One trade, end to end
 
@@ -194,16 +194,17 @@ Memory budget (requests): Kafka 1 GiB, HDFS 1.8 GiB, Cassandra 1.5 GiB, two stre
 | Message queue | Kafka (KRaft) via Strimzi | durable, replayable buffer between ingest and processing; decouples layers | replay for reprocessing, partitioning by symbol, operator-managed on K8s | Pulsar (smaller ecosystem in course), RabbitMQ (no log replay) |
 | Stream processing | Spark Structured Streaming 3.5 | speed layer: OHLCV, dedupe, watermarking | one engine and one codebase for batch and stream; course requirement | Flink (better latency, second engine to learn) |
 | Batch processing | Spark SQL / DataFrames | bronze -> silver -> gold, analytics, ML | same transforms as streaming, unit tested with local Spark | Hive on Tez, Trino (query only) |
-| Distributed storage | HDFS 3.3 | master dataset, Parquet lake | course focus on distributed FS; data locality; block replication visible | MinIO/S3 ([ADR 0003](adr/0003-hdfs-instead-of-minio.md)) |
-| Serving DB | Cassandra 5.0.6 | low-latency reads of candles and latest prices | write-heavy time series, query-first modelling | MongoDB, Elasticsearch ([ADR 0004](adr/0004-cassandra-serving.md)) |
-| Orchestration | Kubernetes (kind -> managed), spark-operator | run everything declaratively, restart on failure | same manifests locally and on cloud | Docker Compose ([ADR 0002](adr/0002-kubernetes-instead-of-docker-compose.md)) |
+| Distributed storage | HDFS 3.3 | master dataset, Parquet lake | course focus on distributed FS; data locality; block replication visible | MinIO/S3 |
+| Serving DB | Cassandra 5.0.6 | low-latency reads of candles and latest prices | write-heavy time series, query-first modelling | MongoDB, Elasticsearch |
+| Orchestration | Kubernetes (kind -> managed), spark-operator | run everything declaratively, restart on failure | same manifests locally and on cloud | Docker Compose |
 | Monitoring | kube-prometheus-stack | metrics for producers, Kafka, Spark | standard, PodMonitor CRDs, Grafana included | ELK only (logs, weak metrics) |
 | Visualization | Grafana + Cassandra datasource | live candles, pipeline health | no extra service; dashboards as code | Superset (needs SQL engine), Streamlit (planned for analytics) |
 
 ## 6. Data contracts
 
-The frozen contracts (symbols, message schemas, Kafka topics, lake layout, Cassandra tables, env vars) are in
-[contracts.md](contracts.md), with an example message per topic; `crypto contracts show` prints them from code.
+The frozen contracts (symbols, message schemas, Kafka topics, lake layout, Cassandra tables, env vars) live in code:
+[contracts.py](../src/cryptopipe/contracts.py), [schemas/](../src/cryptopipe/schemas/), [conf/symbols.yaml](../conf/symbols.yaml),
+[cql/schema.cql](../cql/schema.cql) and [config.py](../src/cryptopipe/config.py); `crypto contracts show` prints them.
 Summary:
 
 | Topic | Key | Partitions | Value |

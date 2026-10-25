@@ -2,7 +2,7 @@
 """Binance archive CSV -> contract columns, so archive history and live stream share one silver schema.
 
 Archive rows go to bronze as JSON of the contract model (`Trade` / `Kline`) with `topic = "archive"`,
-`partition = -1` and `offset` = row number in the file (docs/contracts.md, bronze columns), so `batch_silver`
+`partition = -1` and `offset` = row number in the file (bronze columns, see contracts.BRONZE_COLUMNS), so `batch_silver`
 parses stream and archive bronze the same way.
 """
 

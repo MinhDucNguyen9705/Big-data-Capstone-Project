@@ -52,5 +52,5 @@
 /src/cryptopipe/config.py           @memberA @memberB @memberC @memberD @memberE
 /conf/symbols.yaml                  @memberA @memberB @memberC @memberD @memberE
 /cql/schema.cql                     @memberA @memberB @memberC @memberD @memberE
-/docs/contracts.md                  @memberA @memberB @memberC @memberD @memberE
+
 /.env.example                       @memberA @memberB @memberC @memberD @memberE

@@ -1,7 +1,7 @@
 # Owner: B (Ingestion) | Task: A3 | Status: implemented
 """Binance combined WebSocket stream (`<sym>@trade` + `<sym>@kline_1m`) -> `raw.trades` / `raw.klines`.
 
-Spec (docs/implementation-plan.md, A3): reconnect proactively at ~23 h and on errors with exponential backoff
+Spec: reconnect proactively at ~23 h and on errors with exponential backoff
 (1 s -> 60 s, jitter); after a reconnect, fill the gap from REST using the last trade id per symbol; export
 Prometheus metrics on `settings.metrics_port`. Raw samples: tests/fixtures/binance_ws_{trade,kline}.jsonl.
 """

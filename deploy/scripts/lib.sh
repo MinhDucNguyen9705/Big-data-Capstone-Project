@@ -5,6 +5,9 @@
 # kubectl or docker. Turn that off for every script that sources this file.
 export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL='*'
+# Python on Windows reads and writes files as cp1252 unless told otherwise; generated files (dashboards, topics)
+# are UTF-8, so `--check` comparisons failed there. UTF-8 mode is already the default on Linux/macOS.
+export PYTHONUTF8=1
 
 # `pwd -W` (Git Bash) gives D:/path, which both bash and native Windows tools (helm.exe, kind.exe) accept.
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && { pwd -W 2>/dev/null || pwd; })"

@@ -1,4 +1,4 @@
-"""`Alert`: value of topic `alerts` and rows of Cassandra `alerts` (CONTRACT, see docs/contracts.md)."""
+"""`Alert`: value of topic `alerts` and rows of Cassandra `alerts` (CONTRACT, see cryptopipe.contracts)."""
 
 from __future__ import annotations
 

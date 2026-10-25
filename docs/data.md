@@ -3,7 +3,8 @@
 Owner: **D (Batch and data)**. First version (task A4/A6). The checkpoint dataset numbers (task A8) are filled in
 once it is loaded into HDFS on the cluster; until then the tables below come from a local sample run.
 
-Layout, topics and tables are frozen in [contracts.md](contracts.md); this page describes the data that flows
+Layout, topics and tables are frozen in [contracts.py](../src/cryptopipe/contracts.py) (summary in
+[architecture.md](architecture.md) section 6); this page describes the data that flows
 through them.
 
 ## 1. Sources

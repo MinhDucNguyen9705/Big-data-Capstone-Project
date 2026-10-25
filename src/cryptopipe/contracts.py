@@ -1,7 +1,8 @@
 """Frozen interfaces between layers: Kafka topics, lake layout, Cassandra tables.
 
 Import these constants instead of writing topic names, paths or table names as strings.
-CONTRACT: changes need a PR that updates docs/contracts.md and is approved by the owners of every affected layer.
+CONTRACT: changes need a PR that updates this module, its tests and docs/architecture.md (section 6), approved
+by the owners of every affected layer.
 """
 
 from __future__ import annotations

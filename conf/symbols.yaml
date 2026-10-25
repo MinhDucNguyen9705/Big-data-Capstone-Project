@@ -1,4 +1,4 @@
-# Tracked symbols (CONTRACT: changes need a PR approved by every affected owner, see docs/contracts.md).
+# Tracked symbols (CONTRACT: changes need a PR approved by every affected owner, see src/cryptopipe/contracts.py).
 # canonical = BASE-QUOTE, quote USDT. Coinbase quotes in USD; its trades map to the USDT canonical symbol
 # (documented approximation, the B2 spread analysis measures the difference). BNB is not listed on Coinbase.
 symbols:

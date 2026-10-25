@@ -1,4 +1,4 @@
-"""`FearGreed`: value of compacted topic `ref.fear_greed` (CONTRACT, see docs/contracts.md)."""
+"""`FearGreed`: value of compacted topic `ref.fear_greed` (CONTRACT, see cryptopipe.contracts)."""
 
 from __future__ import annotations
 

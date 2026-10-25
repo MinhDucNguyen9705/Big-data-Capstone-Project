@@ -2,7 +2,7 @@
 
 Kubernetes manifests, Helm values and scripts for the whole platform. Owner: **A (Platform)**, except
 `cassandra/` and `monitoring/` (owner **E**), `ingest/` (owner **B**), `spark/stream-*.yaml` (**C**) and
-`spark/batch-*.yaml` (**D**). Working plan: [docs/plans/member-a-platform.md](../docs/plans/member-a-platform.md).
+`spark/batch-*.yaml` (**D**). Step-by-step setup: [docs/getting-started.md](../docs/getting-started.md).
 
 ```bash
 make cluster-up        # kind cluster + namespaces + shared ConfigMap + Strimzi and spark-operator
@@ -50,7 +50,7 @@ Windows: `winget install Kubernetes.kind Helm.Helm ezwinports.make`. Run `make` 
 | Spark images | `cryptopipe-spark:<git-sha>` and `:latest` | |
 | Ingest image | `cryptopipe-ingest:<git-sha>` and `:latest` | |
 
-Names follow `docs/contracts.md` section 6 exactly (short form `<svc>.<namespace>`). Do not mix in
+Names follow `cryptopipe.config.Settings` / [common/cryptopipe-env.yaml](common/cryptopipe-env.yaml) exactly (short form `<svc>.<namespace>`). Do not mix in
 `hdfs-namenode.storage.svc`: Hadoop treats a different authority as a different file system ("Wrong FS").
 
 Use `127.0.0.1`, not `localhost`, for Kafka from a Windows laptop: `localhost` resolves to `::1` first and Docker
@@ -64,7 +64,7 @@ Desktop's IPv6 forwarding to kind hangs (librdkafka reports `Broker transport fa
   envFrom:
     - configMapRef: { name: cryptopipe-env }
   ```
-  (source: [common/cryptopipe-env.yaml](common/cryptopipe-env.yaml); values from `docs/contracts.md`).
+  (source: [common/cryptopipe-env.yaml](common/cryptopipe-env.yaml)).
 * **Kafka topics** are generated from `contracts.TOPICS` by [kafka/gen_topics.py](kafka/gen_topics.py); never
   create topics by hand (`auto.create.topics.enable=false`).
 * **Lake folders** are generated from `contracts.LAKE_PATHS` by [hdfs/gen_lake_dirs.py](hdfs/gen_lake_dirs.py) and
@@ -105,5 +105,5 @@ Desktop's IPv6 forwarding to kind hangs (librdkafka reports `Broker transport fa
 | First `make deploy` takes 20+ min | images pulled by every node (`apache/hadoop` ~1 GB) | normal on slow networks; later runs ~6 min |
 
 Sizing for the local profile (requests ~1.3 CPU, ~4 GiB; per-workload table): see
-[docs/sections/deployment.md](../docs/sections/deployment.md). Measured on an 8 GB / 12 CPU Docker Desktop VM:
+[docs/deployment.md](../docs/deployment.md). Measured on an 8 GB / 12 CPU Docker Desktop VM:
 first `cluster-up` 15 min, rerun 2 min; `make deploy` 6 min on a warm cluster; `make smoke` 1.5 min.

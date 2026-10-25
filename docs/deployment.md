@@ -1,8 +1,7 @@
-# Deployment (section text for docs/architecture.md)
+# Deployment
 
-Author: A (Platform). E assembles this into `docs/architecture.md`; edit here, not there.
-Sources: [deploy/README.md](../../deploy/README.md), ADR [0002](../adr/0002-kubernetes-instead-of-docker-compose.md)
-and [0003](../adr/0003-hdfs-instead-of-minio.md).
+Owner: A (Platform). Platform details behind [architecture.md](architecture.md) section 4; scripts and
+troubleshooting in [deploy/README.md](../deploy/README.md).
 
 The whole pipeline runs on Kubernetes: kind on the laptops (`make cluster-up build-images deploy smoke`), the same
 manifests with a `cloud` kustomize overlay on a managed cluster. Each layer has its own namespace. Operators

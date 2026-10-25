@@ -1,4 +1,4 @@
-# Owner: E (Serving and docs), A7. Names match docs/contracts.md.
+# Owner: E (Serving and docs), A7. Names match cryptopipe.contracts and CRYPTO_CASSANDRA_HOSTS.
 apiVersion: v1
 kind: Service
 metadata:

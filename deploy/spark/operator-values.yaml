@@ -12,9 +12,17 @@ spark:
 
 controller:
   replicas: 1
+  # One replica: no leader election. On a laptop, lease renewals time out while images load into kind
+  # ("Failed to update lock ... Client.Timeout exceeded"), and the controller and webhook then crash-loop.
+  leaderElection:
+    enable: false
+  # Every submission starts a spark-submit JVM inside the controller. With the default 10 workers, a restart
+  # resubmits all streaming apps at once and two JVMs + the controller exceeded 512Mi (OOMKilled, crash loop,
+  # apps stuck in SUBMISSION_FAILED). One worker submits sequentially; 1Gi leaves room for one JVM.
+  workers: 1
   resources:
-    requests: { cpu: 100m, memory: 192Mi }
-    limits: { memory: 512Mi }   # every submission starts a spark-submit JVM inside the controller
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
   # The controller runs spark-submit for every SparkApplication. In cluster mode the driver only sees the
   # properties spark-submit sends (its /opt/spark/conf is replaced by a generated ConfigMap), so the image's
   # spark-defaults.conf is ignored. Giving the controller conf/spark-defaults.conf (ConfigMap spark-defaults,
@@ -35,6 +43,8 @@ controller:
 # are silently ignored, so it stays on and the install waits for it.
 webhook:
   enable: true
+  leaderElection:
+    enable: false
   failurePolicy: Fail
   resources:
     requests: { cpu: 50m, memory: 64Mi }

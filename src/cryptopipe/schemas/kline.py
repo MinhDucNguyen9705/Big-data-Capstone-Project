@@ -1,4 +1,4 @@
-"""`Kline`: value of topic `raw.klines` (CONTRACT, see docs/contracts.md)."""
+"""`Kline`: value of topic `raw.klines` (CONTRACT, see cryptopipe.contracts)."""
 
 from __future__ import annotations
 
