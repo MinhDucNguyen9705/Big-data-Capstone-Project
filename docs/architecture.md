@@ -6,7 +6,7 @@ readiness. Serving installation and acceptance checks: [serving-and-docs-chi.md]
 recorded verification: [serving-validation.md](serving-validation.md).
 
 ## 1. Problem and 3V numbers
-
+        
 Crypto markets trade 24/7 on many exchanges. The system collects every trade and 1-minute candle from Binance
 and Coinbase in real time, keeps the full history in a data lake, and serves both live candles (seconds of
 latency) and historical analytics (indicators, correlations, ML; milestones B2 to B4).
