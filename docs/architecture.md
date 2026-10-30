@@ -5,7 +5,7 @@ This describes the intended integrated deployment. Code/manifests existing in Gi
 readiness. How to run it: [getting-started.md](getting-started.md). Platform details: [deployment.md](deployment.md).
 
 ## 1. Problem and 3V numbers
-
+        
 Crypto markets trade 24/7 on many exchanges. The system collects every trade and 1-minute candle from Binance
 and Coinbase in real time, keeps the full history in a data lake, and serves both live candles (seconds of
 latency) and historical analytics (indicators, correlations, ML; milestones B2 to B4).
